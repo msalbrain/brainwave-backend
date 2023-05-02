@@ -1,10 +1,7 @@
 
 ## Description
 
-This is a minimalistic and extensible [FastAPI][fastapi] template that incorporates
-divisional pattern architecture with [divisional folder structure][divisional_pattern].
-It's suitable for developing small to medium sized API oriented micro-services. The
-architecture is similar to what you'd get with Flask's [Blueprint][blueprint].
+This is the backend template for brainwave.
 
 ## Quickstart
 

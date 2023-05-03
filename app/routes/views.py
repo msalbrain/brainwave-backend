@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 
 from app.apis.api_a.mainmod import main_func as main_func_a
-from app.apis.api_b.mainmod import main_func as main_func_b
 from app.core.auth import get_current_user
 
-router = APIRouter()
+router = APIRouter(tags=["General Routes"])
 
 
 @router.get("/")
@@ -17,17 +17,25 @@ async def index() -> dict[str, str]:
     }
 
 
-@router.get("/api_a/{num}", tags=["api_a"])
-async def view_a(
-    num: int,
+@router.get("/dummy/{num}")
+async def dummy(
+    num: int = 20,
     auth: Depends = Depends(get_current_user),
 ) -> dict[str, int]:
     return main_func_a(num)
 
 
-@router.get("/api_b/{num}", tags=["api_b"])
-async def view_b(
-    num: int,
-    auth: Depends = Depends(get_current_user),
-) -> dict[str, int]:
-    return main_func_b(num)
+
+cdn = APIRouter(tags=["Micro CDN"])
+
+@cdn.get('/image/{image}')
+def ret_images(image: str):
+
+    try:
+        open(f"static\image\{image}")
+    except:
+        raise HTTPException(status_code=409,detail="image not passed correctly")
+    else:
+        return FileResponse(f"static\image\{image}")
+
+

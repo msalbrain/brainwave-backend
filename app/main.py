@@ -1,5 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+
 from starlette.middleware.cors import CORSMiddleware
+
+
+
+from fastapi.staticfiles import StaticFiles
 
 from app.core import auth
 from app.routes import views
@@ -15,5 +20,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.include_router(auth.auth)
 app.include_router(views.router)
+app.include_router(views.cdn)
+
+

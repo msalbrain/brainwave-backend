@@ -1,15 +1,18 @@
 from typing import Any, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl, EmailStr
+
+from fastapi import UploadFile
 
 
 class User(BaseModel):
-    username: str
-    disabled: Optional[bool] = None
+    username: EmailStr
+
 
 
 class UserInDB(User):
-    hashed_password: str
+    disabled: Optional[bool] = None
+    password: str
     admin: str
     created: int | float
 
@@ -19,12 +22,16 @@ class SignupReturn(BaseModel):
     message: str
     error: str
 
-
-class SignupUser(User):
-    first_name: str
-    last_name: str
-    password: str
+class SignUpBase(User):
+    firstname: str
+    lastname: str
     country: str
+    avatar_url: Optional[HttpUrl] = None
+
+class SignupUser(SignUpBase):
+    password: str
+
+    avatar_url: Optional[HttpUrl] = None
     facebook_id: Optional[str] = None
     google_id: Optional[str] = None
 

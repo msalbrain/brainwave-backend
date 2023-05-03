@@ -7,6 +7,7 @@ from pydantic import HttpUrl
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Request, File, Body
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.responses import JSONResponse
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from bson.objectid import ObjectId
@@ -14,14 +15,16 @@ from bson.objectid import ObjectId
 from app.core import config
 from app.database import helpers, db
 from app.utils import get_random_string, get_unix_time
-from .schema import Token, TokenData, AdminUpgrade, AdminDowngrade,\
+from .schema import Token, TokenData, AdminUpgrade, AdminDowngrade, \
     UpdateBase, SignupReturn, SignupUser, AdminBlock
-
-
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
+
+
+
 auth = APIRouter(prefix="/user", tags=["Authentication"])
+
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -111,26 +114,28 @@ def confirm_admin_body_legit(user_id, username):
         q = {"_id": ObjectId(user_id)}
         u = get_user_by_id(user_id)
         if not u:
-            raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
-                                detail="id provided isn't assigned to any user")
+            return JSONResponse(status_code=HTTPStatus.NOT_FOUND,
+                                content={"detail": "id provided isn't assigned to any user"})
+
         if not u.get("username"):
-            raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
-                                detail="id provided isn't assigned to any user")
-        elif u.get("superadmin"):
-            raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
-                                detail="a superadmin can't alter status of superadmin")
+            return JSONResponse(status_code=HTTPStatus.NOT_FOUND,
+                                content={"detail": "username provided isn't assigned to any user"})
+
+        if u.get("superadmin"):
+            return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
+                                content={"detail": "a superadmin can't alter status of superadmin"})
+
     elif username:
         q = {"username": username}
         u = get_user(username)
         if not u:
-            raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
-                                detail="username provided isn't assigned to any user")
-        if not u.get("username"):
-            raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
-                                detail="username provided isn't assigned to any user")
+            return JSONResponse(status_code=HTTPStatus.NOT_FOUND,
+                                content={"detail": "username provided isn't assigned to any user"})
+
+
         elif u.get("superadmin"):
-            raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
-                                detail="a superadmin can't alter status of superadmin")
+            return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
+                                content={"detail": "a superadmin can't alter status of superadmin"})
 
     return q
 
@@ -320,7 +325,9 @@ async def downgrade_from_admin(
             raise HTTPException(status_code=HTTPStatus.CONFLICT,
                                 detail=f"internal error")
 
-        return {"status": 200, "message": f"successfully downgraded user {q.get('username') or q.get('_id')} from sub admin", "error": ""}
+        return {"status": 200,
+                "message": f"successfully downgraded user {q.get('username') or q.get('_id')} from sub admin",
+                "error": ""}
 
     raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
                         detail="you need super admin privileges to access this route")
@@ -355,7 +362,6 @@ async def block_user(
     else:
         q = {"username": str(username)}
         user = by_username
-
 
     if not user["subadmin"] and auth["subadmin"] and not auth["disabled"]:
 

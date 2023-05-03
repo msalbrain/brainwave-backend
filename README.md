@@ -4,6 +4,13 @@
 This is the backend template for brainwave.
 
 ## Quickstart
+* create a copy of .env.example as .env and populate 
+
+    ```bash
+    cp .env.example .env
+    ```
+
+
 
 ### Run the app in containers
 
@@ -71,14 +78,10 @@ This shows the folder structure of the default template.
 fastapi-nano
 ├── app                           # primary app folder
 │   ├── apis                      # this houses all the API packages
-│   │   ├── api_a                 # api_a package
-│   │   │   ├── __init__.py       # empty init file to make the api_a folder a package
-│   │   │   ├── mainmod.py        # main module of api_a package
-│   │   │   └── submod.py         # submodule of api_a package
-│   │   └── api_b                 # api_b package
-│   │       ├── __init__.py       # empty init file to make the api_b folder a package
-│   │       ├── mainmod.py        # main module of api_b package
-│   │       └── submod.py         # submodule of api_b package
+│   │    └── api_a                 # api_a package
+│   │        ├── __init__.py       # empty init file to make the api_a folder a package
+│   │        ├── mainmod.py        # main module of api_a package
+│   │        └── submod.py         # submodule of api_a package
 │   ├── core                      # this is where the configs live
 │   │   ├── auth.py               # authentication with OAuth2
 │   │   ├── config.py             # sample config file
@@ -194,6 +197,7 @@ Caddyfile.
 * [Pytest](https://docs.pytest.org/en/latest/)
 * [Starlette](https://www.starlette.io/)
 * [Uvicorn][uvicorn]
+* [PyMongo][pymongo]
 
 ## Resources
 
@@ -210,6 +214,7 @@ Caddyfile.
 [gunicorn]: https://gunicorn.org/
 [httpx]: https://www.python-httpx.org/
 [uvicorn]: https://uvicorn.org/
+[pymongo]: https://pymongo.readthedocs.io/en/stable/
 
 [screenshot_1]: https://user-images.githubusercontent.com/30027932/85229723-5b721880-b40d-11ea-8f03-de36c07a3ce5.png
 [screenshot_2]: https://user-images.githubusercontent.com/30027932/85229725-5e6d0900-b40d-11ea-9c37-bbee546f84a8.png

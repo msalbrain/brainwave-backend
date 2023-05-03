@@ -4,6 +4,7 @@ user = db['user']
 
 
 def get_user(fields):
+    print("this is from print function")
     return user.find_one(fields)
 
 

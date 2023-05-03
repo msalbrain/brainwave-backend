@@ -9,7 +9,6 @@ class User(BaseModel):
     username: EmailStr
 
 
-
 class UserInDB(User):
     disabled: Optional[bool] = None
     password: str
@@ -19,8 +18,9 @@ class UserInDB(User):
 
 class SignupReturn(BaseModel):
     status: int
-    message: str
+    message: Any
     error: str
+
 
 class SignUpBase(User):
     firstname: str
@@ -28,10 +28,10 @@ class SignUpBase(User):
     country: str
     avatar_url: Optional[HttpUrl] = None
 
+
 class SignupUser(SignUpBase):
     password: str
 
-    avatar_url: Optional[HttpUrl] = None
     facebook_id: Optional[str] = None
     google_id: Optional[str] = None
 

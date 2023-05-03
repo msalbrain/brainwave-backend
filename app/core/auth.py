@@ -16,7 +16,7 @@ from app.utils import get_random_string, get_unix_time
 from .schema import Token, TokenData, SignUpBase, UserInDB, SignupReturn, SignupUser
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 auth = APIRouter(prefix="/user", tags=["User"])
 
 
@@ -26,6 +26,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
+
+
+def get_user_by_id(
+        id: str
+) -> dict[str, Any] | None:
+    return helpers.get_user({"_id": id})
 
 
 def get_user(
@@ -38,6 +44,8 @@ def authenticate_user(
         username: str,
         password: str,
 ) -> Union[bool, dict[str, Any]]:
+    print("this is inside authenticate user", username, password)
+
     user = get_user(username)
     if not user:
         return False
@@ -93,6 +101,30 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict[str, Any
     return user
 
 
+def confirm_admin_body_legit(user_id, username):
+    q = {}
+    if user_id:
+        q = {"_id": user_id}
+        u = get_user_by_id(user_id)
+        if not u.get("username"):
+            raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
+                                detail="id provided isn't assigned to any user")
+        elif u.get("superadmin"):
+            raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
+                                detail="a superadmin can't alter status of superadmin")
+    elif username:
+        q = {"username": username}
+        u = get_user(username)
+        if not u.get("username"):
+            raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
+                                detail="username provided isn't assigned to any user")
+        elif u.get("superadmin"):
+            raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
+                                detail="a superadmin can't alter status of superadmin")
+
+    return q
+
+
 @auth.post("/signup", response_model=SignupReturn)
 async def create_new_user(
         request: Request, user_data: SignupUser = Body(...)
@@ -118,20 +150,22 @@ async def create_new_user(
         "username": user_data.username,
         "avatar": dp_image,
         "refferal_code": get_random_string(15),
+        "no_of_referrals":0,
         "password": get_password_hash(user_data.password),
         "country": user_data.country,
         "facebook_id": user_data.facebook_id,
         "google_id": user_data.google_id,
         "disabled": False,
         "superadmin": False,
-        "generaladmin": False,
+        "subadmin": False,
         "created": get_unix_time()
     }
-    #
-    # print(d)
-    # user_obj = user.insert_one(d)
 
-    return {"status": 200, "message": "successfully added user", "error": ""}
+    # print(d)
+    user_obj = user.insert_one(d)
+
+    print(user_obj)
+    return {"status": 200, "message": "", "error": ""}
 
 
 @auth.post("/login", response_model=Token)
@@ -171,8 +205,6 @@ async def add_avatar(
     f.write(content)
     f.close()
 
-
-
     helpers.update_user({"_id": auth["_id"]}, {"avatar": str(request.base_url) + f"image/{avatar.filename}"})
 
     return {"status": 200, "message": "successfully updated avatar", "error": ""}
@@ -183,25 +215,23 @@ async def update_user(
         user_data: SignUpBase = Body(...),
         auth: Depends = Depends(get_current_user)
 ):
-    try:
-        changer = {}
+    changer = {}
 
-        if user_data.firstname:
-            changer["firstname"] = user_data.firstname
-        if user_data.lastname:
-            changer["lastname"] = user_data.lastname
-        if user_data.avatar_url:
-            changer["avatar_url"] = user_data.avatar_url
-        if user_data.country:
-            changer["country"] = user_data.country
+    if user_data.firstname:
+        changer["firstname"] = user_data.firstname
+    if user_data.lastname:
+        changer["lastname"] = user_data.lastname
+    if user_data.avatar_url:
+        changer["avatar_url"] = user_data.avatar_url
+    if user_data.country:
+        changer["country"] = user_data.country
 
-        helpers.update_user({"_id": auth["_id"]}, changer)
+    up = helpers.update_user({"_id": auth["_id"]}, changer)
 
-        return {"status": 200, "message": f"successfully updated user {auth['username']}", "error": ""}
+    if not up:
+        raise HTTPException(status_code=HTTPStatus.CONFLICT, detail="sorry some error occured while updating the user")
 
-    except:
-        raise HTTPException(status_code=HTTPStatus.CONFLICT, detail="sorry seems like we are facing some internal error")
-
+    return {"status": 200, "message": f"successfully updated user {auth['username']}", "error": ""}
 
 
 @auth.get("/current-user")
@@ -211,3 +241,75 @@ async def get_current_user(auth: Depends = Depends(get_current_user)):
     auth.pop("password")
 
     return auth
+
+
+@auth.get("/referral-code")
+async def get_current_user(request: Request, auth: Depends = Depends(get_current_user)):
+    return {"token": auth.get('refferal_code')}
+
+
+
+
+# ------------------------ ADMIN ------------------------------
+
+@auth.post("/admin/upgrade", response_model=SignupReturn)
+async def upgrade_to_admin(
+        id: Optional[str] = Body(...),
+        username: Optional[str] = Body(...),
+        auth: Depends = Depends(get_current_user)
+) -> dict[str, Any]:
+    if auth["superadmin"] and auth["subadmin"]:
+        q = confirm_admin_body_legit(id, username)
+
+        up = helpers.update_user(q, {"subadmin": True})
+
+        if not up:
+            raise HTTPException(status_code=HTTPStatus.CONFLICT,
+                                detail="successfully updated user to sub admin")
+
+        return {"status": 200, "message": f"successfully updated user {auth['username']}", "error": ""}
+
+    raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
+                        detail="you need super admin privileges to access this route")
+
+
+@auth.post("/admin/downgrade", response_model=SignupReturn)
+async def downgrade_from_admin(
+        id: Optional[str] = Body(...),
+        username: Optional[str] = Body(...),
+        auth: Depends = Depends(get_current_user)
+) -> dict[str, Any]:
+    if auth["superadmin"] and auth["subadmin"]:
+        q = confirm_admin_body_legit(id, username)
+
+        up = helpers.update_user(q, {"subadmin": False})
+
+        if not up:
+            raise HTTPException(status_code=HTTPStatus.CONFLICT,
+                                detail="successfully updated user to sub admin")
+
+        return {"status": 200, "message": f"successfully updated user {auth['username']}", "error": ""}
+
+    raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
+                        detail="you need super admin privileges to access this route")
+
+
+@auth.post("/admin/block", response_model=SignupReturn)
+async def downgrade_from_admin(
+        id: Optional[str] = Body(...),
+        username: Optional[str] = Body(...),
+        auth: Depends = Depends(get_current_user)
+) -> dict[str, Any]:
+    if auth["superadmin"] and auth["subadmin"]:
+        q = confirm_admin_body_legit(id, username)
+
+        up = helpers.update_user(q, {"subadmin": False})
+
+        if not up:
+            raise HTTPException(status_code=HTTPStatus.CONFLICT,
+                                detail="successfully updated user to sub admin")
+
+        return {"status": 200, "message": f"successfully updated user {auth['username']}", "error": ""}
+
+    raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
+                        detail="you need super admin privileges to access this route")

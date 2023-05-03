@@ -16,15 +16,12 @@ from app.core import config
 from app.database import helpers, db
 from app.utils import get_random_string, get_unix_time
 from .schema import Token, TokenData, AdminUpgrade, AdminDowngrade, \
-    UpdateBase, SignupReturn, SignupUser, AdminBlock
+    UpdateBase, SignupReturn, SignupUser, AdminBlock, AuthError, CurrentUser, RefToken
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
-
-
 auth = APIRouter(prefix="/user", tags=["Authentication"])
-
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -36,9 +33,9 @@ def get_password_hash(password: str) -> str:
 
 
 def get_user_by_id(
-        id: str
+        user_id: str
 ) -> dict[str, Any] | None:
-    return helpers.get_user({"_id": ObjectId(id)})
+    return helpers.get_user({"_id": ObjectId(user_id)})
 
 
 def get_user(
@@ -140,7 +137,7 @@ def confirm_admin_body_legit(user_id, username):
     return q
 
 
-@auth.post("/signup", response_model=SignupReturn)
+@auth.post("/signup", response_model=SignupReturn, responses={409: {"model": AuthError}})
 async def create_new_user(
         request: Request, user_data: SignupUser = Body(...)
 ) -> dict[str, Any]:
@@ -163,7 +160,7 @@ async def create_new_user(
         "firstname": user_data.firstname,
         "lastname": user_data.lastname,
         "username": user_data.username,
-        "avatar": dp_image,
+        "avatar_url": dp_image,
         "refferal_code": get_random_string(15),
         "no_of_referrals": 0,
         "password": get_password_hash(user_data.password),
@@ -183,7 +180,7 @@ async def create_new_user(
     return {"status": 200, "message": "successfully created user", "error": ""}
 
 
-@auth.post("/login", response_model=Token)
+@auth.post("/login", response_model=Token, responses={401: {"model": AuthError}})
 async def login_for_access_token(
         form_data: OAuth2PasswordRequestForm = Depends(),
 ) -> dict[str, Any]:
@@ -209,23 +206,29 @@ async def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@auth.put("/add-avatar", response_model=SignupReturn)
+@auth.put("/add-avatar", response_model=SignupReturn, responses={401: {"model": AuthError},
+                                                                 500: {"model": AuthError}})
 async def add_avatar(
         avatar: UploadFile, request: Request,
         auth: Depends = Depends(get_current_user)
 ):
-    content = await avatar.read()
+    try:
+        content = await avatar.read()
 
-    f = open(f"static\image\/{avatar.filename}", "wb")
-    f.write(content)
-    f.close()
+        f = open(f"static\image\/{avatar.filename}", "wb")
+        f.write(content)
+        f.close()
 
-    helpers.update_user({"_id": ObjectId(auth["_id"])}, {"avatar": str(request.base_url) + f"image/{avatar.filename}"})
+        helpers.update_user({"_id": ObjectId(auth["_id"])},
+                            {"avatar": str(request.base_url) + f"image/{avatar.filename}"})
+    except:
+        return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"detail": "some internal issues"})
 
     return {"status": 200, "message": "successfully updated avatar", "error": ""}
 
 
-@auth.put("/update", response_model=SignupReturn)
+@auth.put("/update", response_model=SignupReturn,
+          responses={401: {"model": AuthError}, 409: {"model": AuthError}})
 async def update_user(
         user_data: UpdateBase = Body(...),
         auth: Depends = Depends(get_current_user)
@@ -252,7 +255,7 @@ async def update_user(
     return {"status": 200, "message": f"successfully updated user {auth['username']}", "error": ""}
 
 
-@auth.get("/current-user")
+@auth.get("/current-user", response_model=CurrentUser)
 async def get_current_user(auth: Depends = Depends(get_current_user)):
     auth["id"] = str(auth["_id"])
     auth.pop("_id")
@@ -263,7 +266,7 @@ async def get_current_user(auth: Depends = Depends(get_current_user)):
     return auth
 
 
-@auth.get("/referral-code")
+@auth.get("/referral-code", responses={200: {"model": RefToken}, 401: {"model": AuthError}})
 async def get_token(request: Request, auth: Depends = Depends(get_current_user)):
     return {"token": auth.get('refferal_code')}
 

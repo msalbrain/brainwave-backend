@@ -28,6 +28,21 @@ class SignUpBase(User):
     country: str
     avatar_url: Optional[HttpUrl] = None
 
+class UpdateBase(BaseModel):
+    firstname: Optional[str]
+    lastname: Optional[str]
+    country: Optional[str]
+    avatar_url: Optional[HttpUrl] = None
+
+class AdminUpgrade(BaseModel):
+    id: Optional[str]
+    username: Optional[str]
+
+class AdminDowngrade(AdminUpgrade):
+    pass
+
+class AdminBlock(AdminUpgrade):
+    pass
 
 class SignupUser(SignUpBase):
     password: str

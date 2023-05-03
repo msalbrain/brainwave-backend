@@ -9,7 +9,8 @@ from fastapi.staticfiles import StaticFiles
 from app.core import auth
 from app.routes import views
 
-app = FastAPI()
+app = FastAPI(title="Brainwave Api", version="0.1.5")
+
 
 # Set all CORS enabled origins
 app.add_middleware(
@@ -22,8 +23,8 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-app.include_router(auth.auth)
 app.include_router(views.router)
+app.include_router(auth.auth)
 app.include_router(views.cdn)
 
 

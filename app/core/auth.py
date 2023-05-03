@@ -9,15 +9,19 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, Request, File
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from bson.objectid import ObjectId
 
 from app.core import config
 from app.database import helpers, db
 from app.utils import get_random_string, get_unix_time
-from .schema import Token, TokenData, SignUpBase, UserInDB, SignupReturn, SignupUser
+from .schema import Token, TokenData, AdminUpgrade, AdminDowngrade,\
+    UpdateBase, SignupReturn, SignupUser, AdminBlock
+
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
-auth = APIRouter(prefix="/user", tags=["User"])
+auth = APIRouter(prefix="/user", tags=["Authentication"])
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -31,7 +35,7 @@ def get_password_hash(password: str) -> str:
 def get_user_by_id(
         id: str
 ) -> dict[str, Any] | None:
-    return helpers.get_user({"_id": id})
+    return helpers.get_user({"_id": ObjectId(id)})
 
 
 def get_user(
@@ -104,8 +108,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict[str, Any
 def confirm_admin_body_legit(user_id, username):
     q = {}
     if user_id:
-        q = {"_id": user_id}
+        q = {"_id": ObjectId(user_id)}
         u = get_user_by_id(user_id)
+        if not u:
+            raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
+                                detail="id provided isn't assigned to any user")
         if not u.get("username"):
             raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
                                 detail="id provided isn't assigned to any user")
@@ -115,6 +122,9 @@ def confirm_admin_body_legit(user_id, username):
     elif username:
         q = {"username": username}
         u = get_user(username)
+        if not u:
+            raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
+                                detail="username provided isn't assigned to any user")
         if not u.get("username"):
             raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
                                 detail="username provided isn't assigned to any user")
@@ -150,7 +160,7 @@ async def create_new_user(
         "username": user_data.username,
         "avatar": dp_image,
         "refferal_code": get_random_string(15),
-        "no_of_referrals":0,
+        "no_of_referrals": 0,
         "password": get_password_hash(user_data.password),
         "country": user_data.country,
         "facebook_id": user_data.facebook_id,
@@ -165,7 +175,7 @@ async def create_new_user(
     user_obj = user.insert_one(d)
 
     print(user_obj)
-    return {"status": 200, "message": "", "error": ""}
+    return {"status": 200, "message": "successfully created user", "error": ""}
 
 
 @auth.post("/login", response_model=Token)
@@ -205,16 +215,16 @@ async def add_avatar(
     f.write(content)
     f.close()
 
-    helpers.update_user({"_id": auth["_id"]}, {"avatar": str(request.base_url) + f"image/{avatar.filename}"})
+    helpers.update_user({"_id": ObjectId(auth["_id"])}, {"avatar": str(request.base_url) + f"image/{avatar.filename}"})
 
     return {"status": 200, "message": "successfully updated avatar", "error": ""}
 
 
 @auth.put("/update", response_model=SignupReturn)
 async def update_user(
-        user_data: SignUpBase = Body(...),
+        user_data: UpdateBase = Body(...),
         auth: Depends = Depends(get_current_user)
-):
+) -> dict[str, Any]:
     changer = {}
 
     if user_data.firstname:
@@ -226,7 +236,10 @@ async def update_user(
     if user_data.country:
         changer["country"] = user_data.country
 
-    up = helpers.update_user({"_id": auth["_id"]}, changer)
+    if not changer:
+        return {"status": 200, "message": "no change due to empty body", "error": ""}
+
+    up = helpers.update_user({"_id": ObjectId(auth["_id"])}, changer)
 
     if not up:
         raise HTTPException(status_code=HTTPStatus.CONFLICT, detail="sorry some error occured while updating the user")
@@ -239,25 +252,34 @@ async def get_current_user(auth: Depends = Depends(get_current_user)):
     auth["id"] = str(auth["_id"])
     auth.pop("_id")
     auth.pop("password")
+    auth.pop("facebook_id")
+    auth.pop("google_id")
 
     return auth
 
 
 @auth.get("/referral-code")
-async def get_current_user(request: Request, auth: Depends = Depends(get_current_user)):
+async def get_token(request: Request, auth: Depends = Depends(get_current_user)):
     return {"token": auth.get('refferal_code')}
-
-
 
 
 # ------------------------ ADMIN ------------------------------
 
 @auth.post("/admin/upgrade", response_model=SignupReturn)
 async def upgrade_to_admin(
-        id: Optional[str] = Body(...),
-        username: Optional[str] = Body(...),
+        data: AdminUpgrade,
         auth: Depends = Depends(get_current_user)
 ) -> dict[str, Any]:
+    """
+    This route allows for the upgrade of user to a subadmin. It accepts a json object containing
+    either an `id` or  `username`. upgrade is allowed base on privilege level i.e
+
+    `
+        superadmin > subadmin > general user
+    `
+    """
+    id = data.id
+    username = data.username
     if auth["superadmin"] and auth["subadmin"]:
         q = confirm_admin_body_legit(id, username)
 
@@ -265,9 +287,9 @@ async def upgrade_to_admin(
 
         if not up:
             raise HTTPException(status_code=HTTPStatus.CONFLICT,
-                                detail="successfully updated user to sub admin")
+                                detail=f"internal issue {up}")
 
-        return {"status": 200, "message": f"successfully updated user {auth['username']}", "error": ""}
+        return {"status": 200, "message": f"successfully updated user {q.get('username') or q.get('_id')}", "error": ""}
 
     raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
                         detail="you need super admin privileges to access this route")
@@ -275,10 +297,20 @@ async def upgrade_to_admin(
 
 @auth.post("/admin/downgrade", response_model=SignupReturn)
 async def downgrade_from_admin(
-        id: Optional[str] = Body(...),
-        username: Optional[str] = Body(...),
+        data: AdminDowngrade,
         auth: Depends = Depends(get_current_user)
 ) -> dict[str, Any]:
+    """
+    This route allows for the downgrade of user from a subadmin. It accepts a json object containing
+    either an `id` or  `username`. downgrade is allowed base on privilege level i.e
+
+    `
+        superadmin > subadmin > general user
+    `
+    """
+
+    id = data.id
+    username = data.username
     if auth["superadmin"] and auth["subadmin"]:
         q = confirm_admin_body_legit(id, username)
 
@@ -286,30 +318,65 @@ async def downgrade_from_admin(
 
         if not up:
             raise HTTPException(status_code=HTTPStatus.CONFLICT,
-                                detail="successfully updated user to sub admin")
+                                detail=f"internal error")
 
-        return {"status": 200, "message": f"successfully updated user {auth['username']}", "error": ""}
+        return {"status": 200, "message": f"successfully downgraded user {q.get('username') or q.get('_id')} from sub admin", "error": ""}
 
     raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
                         detail="you need super admin privileges to access this route")
 
 
 @auth.post("/admin/block", response_model=SignupReturn)
-async def downgrade_from_admin(
-        id: Optional[str] = Body(...),
-        username: Optional[str] = Body(...),
+async def block_user(
+        data: AdminDowngrade,
         auth: Depends = Depends(get_current_user)
 ) -> dict[str, Any]:
-    if auth["superadmin"] and auth["subadmin"]:
-        q = confirm_admin_body_legit(id, username)
+    """
+    This route allows for the blockage of user. It accepts a json object containing
+    either an `id` or  `username`. blocking is allowed base on privilege level i.e
+    `
+        superadmin > subadmin > general user
+    `
+    """
+    id = data.id
+    username = data.username
 
-        up = helpers.update_user(q, {"subadmin": False})
+    by_id = get_user_by_id(id)
+    by_username = get_user(username)
+
+    q = {}
+    user = {}
+    if not by_id and not by_username:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND,
+                            detail=f"user with id {id} or username {username} not found")
+    if by_id:
+        q = {"_id": ObjectId(str(by_id["_id"]))}
+        user = by_id
+    else:
+        q = {"username": str(username)}
+        user = by_username
+
+
+    if not user["subadmin"] and auth["subadmin"] and not auth["disabled"]:
+
+        up = helpers.update_user(q, {"disabled": True})
 
         if not up:
             raise HTTPException(status_code=HTTPStatus.CONFLICT,
-                                detail="successfully updated user to sub admin")
+                                detail="internal error. Contact developer")
 
-        return {"status": 200, "message": f"successfully updated user {auth['username']}", "error": ""}
+        return {"status": 200, "message": f"successfully blocked user {user['username']}", "error": ""}
 
-    raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
-                        detail="you need super admin privileges to access this route")
+    elif user["subadmin"] and auth["superadmin"] and not auth["disabled"]:
+
+        up = helpers.update_user(q, {"disabled": True})
+
+        if not up:
+            raise HTTPException(status_code=HTTPStatus.CONFLICT,
+                                detail="internal error. Contact developer")
+
+        return {"status": 200, "message": f"successfully blocked user {user['username']}", "error": ""}
+
+    else:
+        raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
+                            detail="you do not have the authority to block this user")

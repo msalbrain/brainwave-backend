@@ -223,8 +223,8 @@ async def add_avatar(
 
         helpers.update_user({"_id": ObjectId(auth["_id"])},
                             {"avatar": str(request.base_url) + f"image/{avatar.filename}"})
-    except:
-        return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"detail": "some internal issues"})
+    except Exception as e:
+        return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"detail": f"some internal issues\n {e}"})
 
     return {"status": 200, "message": "successfully updated avatar", "error": ""}
 

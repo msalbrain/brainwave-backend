@@ -28,10 +28,24 @@ class CurrentUser(User):
     firstname: str
     lastname: str
     avatar_url: Optional[HttpUrl]
-    created: int | float
+    created: int | float # this is dada do
     refferal_code: str
     no_of_referrals: int
     country: str
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "id": "507f1f77bcf86cd799439011",
+                "firstname": "idan",
+                "lastname": "idan",
+                "avatar_url": "https://picsum.photos/536/354",
+                "created": 1683172624,
+                "refferal_code": "fghjkmzbvexdtyui",
+                "no_of_referrals": 2,
+                "country": "sardine"
+            }
+        }
 
 
 class SignupReturn(BaseModel):
@@ -70,7 +84,6 @@ class AdminBlock(AdminUpgrade):
 class SignupUser(SignUpBase):
     password: str
 
-    facebook_id: Optional[str] = None
     google_id: Optional[str] = None
 
 

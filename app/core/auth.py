@@ -1,4 +1,5 @@
 from __future__ import annotations
+from uuid import uuid4
 
 from datetime import datetime, timedelta
 from http import HTTPStatus
@@ -17,6 +18,8 @@ from app.database import helpers, db
 from app.utils import get_random_string, get_unix_time
 from .schema import Token, TokenData, AdminUpgrade, AdminDowngrade, \
     UpdateBase, SignupReturn, SignupUser, AdminBlock, AuthError, CurrentUser, RefToken
+
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
@@ -161,11 +164,10 @@ async def create_new_user(
         "lastname": user_data.lastname,
         "username": user_data.username,
         "avatar_url": dp_image,
-        "refferal_code": get_random_string(15),
+        "refferal_code": str(uuid4()).replace('-', ''),
         "no_of_referrals": 0,
         "password": get_password_hash(user_data.password),
         "country": user_data.country,
-        "facebook_id": user_data.facebook_id,
         "google_id": user_data.google_id,
         "disabled": False,
         "superadmin": False,
@@ -269,6 +271,13 @@ async def get_current_user(auth: Depends = Depends(get_current_user)):
 @auth.get("/referral-code", responses={200: {"model": RefToken}, 401: {"model": AuthError}})
 async def get_token(request: Request, auth: Depends = Depends(get_current_user)):
     return {"token": auth.get('refferal_code')}
+
+
+@auth.get("/referral-code", responses={})
+async def delete_user(auth: Depends = Depends(get_current_user)):
+
+    user = get_user_by_id()
+    return
 
 
 # ------------------------ ADMIN ------------------------------
@@ -389,3 +398,5 @@ async def block_user(
     else:
         raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
                             detail="you do not have the authority to block this user")
+
+# ------------------------ END ADMIN ------------------------------

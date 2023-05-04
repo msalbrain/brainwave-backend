@@ -15,3 +15,10 @@ def update_user(query, new_values) -> bool:
         return True
     return False
 
+def delete_user(filter):
+
+    u = user.delete_one(filter)
+
+    if u.raw_result:
+        return True
+    return False

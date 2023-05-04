@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from http import HTTPStatus
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -26,6 +26,15 @@ async def dummy(
         auth: Depends = Depends(get_current_user),
 ) -> dict[str, int]:
     return main_func_a(num)
+
+
+@router.get("/dummsdy")
+async def dummy1(
+        request: Request
+) -> dict[str, int]:
+    b = request.headers
+    print(b)
+    return {"header": 3}
 
 
 cdn = APIRouter(tags=["Micro CDN"])

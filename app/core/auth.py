@@ -217,7 +217,7 @@ async def add_avatar(
     try:
         content = await avatar.read()
 
-        f = open(f"static\image\/{avatar.filename}", "wb")
+        f = open(f"static/image/{avatar.filename}", "wb")
         f.write(content)
         f.close()
 

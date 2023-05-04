@@ -43,8 +43,8 @@ cdn = APIRouter(tags=["Micro CDN"])
 @cdn.get('/image/{image}')
 def ret_images(image: str):
     try:
-        open(f"static\image\{image}")
+        open(f"static/image/{image}")
     except:
         raise HTTPException(status_code=409, detail="image not passed correctly")
     else:
-        return FileResponse(f"static\image\{image}")
+        return FileResponse(f"static/image/{image}")

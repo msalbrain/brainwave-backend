@@ -260,10 +260,6 @@ async def update_user(
 @auth.get("/current-user", response_model=CurrentUser)
 async def get_current_user(auth: Depends = Depends(get_current_user)):
     auth["id"] = str(auth["_id"])
-    auth.pop("_id")
-    auth.pop("password")
-    auth.pop("facebook_id")
-    auth.pop("google_id")
 
     return auth
 

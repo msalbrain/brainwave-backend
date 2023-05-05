@@ -33,7 +33,7 @@ def custom_openapi():
         routes=app.routes
     )
     openapi_schema["info"]["x-logo"] = {
-        "url": "http://127.0.0.1:5000/image/logo.svg"
+        "url": "http://20.127.29.255/image/logo.svg"
     }
     app.openapi_schema = openapi_schema
     return app.openapi_schema

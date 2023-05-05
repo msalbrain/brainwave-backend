@@ -18,126 +18,12 @@ from app.database import helpers, db
 from app.utils import get_random_string, get_unix_time
 from .schema import Token, TokenData, AdminUpgrade, AdminDowngrade, \
     UpdateBase, SignupReturn, SignupUser, AdminBlock, AuthError, CurrentUser, RefToken
+from app.core.utils import verify_password, get_password_hash, get_user_by_id, get_current_user, \
+    get_user, authenticate_user, confirm_admin_body_legit, create_access_token
 
-
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
 auth = APIRouter(prefix="/user", tags=["Authentication"])
-
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
-
-
-def get_user_by_id(
-        user_id: str
-) -> dict[str, Any] | None:
-    return helpers.get_user({"_id": ObjectId(user_id)})
-
-
-def get_user(
-        username: Optional[str],
-) -> dict[str, Any] | None:
-    return helpers.get_user({"username": username})
-
-
-def authenticate_user(
-        username: str,
-        password: str,
-) -> Union[bool, dict[str, Any]]:
-    print("this is inside authenticate user", username, password)
-
-    user = get_user(username)
-    if not user:
-        return False
-    if not verify_password(password, user["password"]):
-        return False
-    return user
-
-
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> bytes | str:
-    to_encode = data.copy()
-
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
-        to_encode,
-        config.API_SECRET_KEY,
-        algorithm=config.API_ALGORITHM,
-    )
-    return encoded_jwt
-
-
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict[str, Any]:
-    credentials_exception = HTTPException(
-        status_code=HTTPStatus.UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    try:
-        payload = jwt.decode(
-            token,
-            config.API_SECRET_KEY,
-            algorithms=[config.API_ALGORITHM],
-        )
-        username = payload.get("sub")
-
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username)
-
-    except JWTError:
-        raise credentials_exception
-
-    user = get_user(username=token_data.username)
-
-    if user is None:
-        raise credentials_exception
-
-    return user
-
-
-def confirm_admin_body_legit(user_id, username):
-    q = {}
-    if user_id:
-        q = {"_id": ObjectId(user_id)}
-        u = get_user_by_id(user_id)
-        if not u:
-            return JSONResponse(status_code=HTTPStatus.NOT_FOUND,
-                                content={"detail": "id provided isn't assigned to any user"})
-
-        if not u.get("username"):
-            return JSONResponse(status_code=HTTPStatus.NOT_FOUND,
-                                content={"detail": "username provided isn't assigned to any user"})
-
-        if u.get("superadmin"):
-            return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                                content={"detail": "a superadmin can't alter status of superadmin"})
-
-    elif username:
-        q = {"username": username}
-        u = get_user(username)
-        if not u:
-            return JSONResponse(status_code=HTTPStatus.NOT_FOUND,
-                                content={"detail": "username provided isn't assigned to any user"})
-
-
-        elif u.get("superadmin"):
-            return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                                content={"detail": "a superadmin can't alter status of superadmin"})
-
-    return q
 
 
 @auth.post("/signup", response_model=SignupReturn, responses={409: {"model": AuthError}})
@@ -184,11 +70,12 @@ async def create_new_user(
 
 @auth.post("/login", response_model=Token, responses={401: {"model": AuthError}})
 async def login_for_access_token(
-        form_data: OAuth2PasswordRequestForm = Depends(),
+        form_data: OAuth2PasswordRequestForm = Depends()
 ) -> dict[str, Any]:
+
     user = authenticate_user(
         form_data.username,
-        form_data.password,
+        form_data.password
     )
 
     if not user:
@@ -224,7 +111,8 @@ async def add_avatar(
         helpers.update_user({"_id": ObjectId(auth["_id"])},
                             {"avatar": str(request.base_url) + f"image/{avatar.filename}"})
     except Exception as e:
-        return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"detail": f"some internal issues\n {e}"})
+        return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+                            content={"detail": f"some internal issues\n {e}"})
 
     return {"status": 200, "message": "successfully updated avatar", "error": ""}
 
@@ -269,11 +157,13 @@ async def get_token(request: Request, auth: Depends = Depends(get_current_user))
     return {"token": auth.get('refferal_code')}
 
 
-@auth.get("/referral-code", responses={})
+@auth.delete("/delete", response_model=SignupReturn, responses={409: {"model": AuthError}})
 async def delete_user(auth: Depends = Depends(get_current_user)):
+    d = helpers.delete_user({"username": auth["username"]})
+    if d:
+        return {"status": 200, "message": f"successfully deleted user {auth['username']}", "error": ""}
 
-    user = get_user_by_id()
-    return
+    raise HTTPException(status_code=HTTPStatus.CONFLICT, detail="sorry some error occured while updating the user")
 
 
 # ------------------------ ADMIN ------------------------------

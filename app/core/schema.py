@@ -83,7 +83,7 @@ class AdminBlock(AdminUpgrade):
 
 class SignupUser(SignUpBase):
     password: str
-
+    refferer_id: Optional[str] = None
     google_id: Optional[str] = None
 
 

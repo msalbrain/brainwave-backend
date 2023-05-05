@@ -19,6 +19,6 @@ def delete_user(filter):
 
     u = user.delete_one(filter)
 
-    if u.raw_result:
-        return True
-    return False
+    return u.raw_result
+        
+    

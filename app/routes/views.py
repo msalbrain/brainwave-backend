@@ -28,13 +28,6 @@ async def dummy(
     return main_func_a(num)
 
 
-@router.get("/dummsdy")
-async def dummy1(
-        request: Request
-) -> dict[str, int]:
-    b = request.headers
-    print(b)
-    return {"header": 3}
 
 
 cdn = APIRouter(tags=["Micro CDN"])

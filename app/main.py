@@ -25,6 +25,8 @@ v1 = APIRouter(prefix="/v1")
 
 v1.include_router(auth.auth)
 v1.include_router(views.router)
+v1.include_router(views.payment)
+
 
 app.include_router(v1)
 app.include_router(views.cdn)

@@ -14,7 +14,8 @@ from bson.objectid import ObjectId
 
 from app.core import config
 from app.database import helpers, db
-from .schema import TokenData
+from .schema import TokenData, SignupUser
+from app.database.helpers import get_user_in_db, update_user
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
@@ -32,13 +33,13 @@ def get_password_hash(password: str) -> str:
 def get_user_by_id(
         user_id: str
 ) -> dict[str, Any] | None:
-    return helpers.get_user({"_id": ObjectId(user_id)})
+    return helpers.get_user_in_db({"_id": ObjectId(user_id)})
 
 
 def get_user(
         username: Optional[str],
 ) -> dict[str, Any] | None:
-    return helpers.get_user({"username": username})
+    return helpers.get_user_in_db({"username": username})
 
 
 def authenticate_user(
@@ -46,7 +47,7 @@ def authenticate_user(
         password: str,
 ) -> Union[bool, dict[str, Any]]:
 
-    user = get_user(username)
+    user = get_user_in_db(username)
     if not user:
         return False
     if not verify_password(password, user["password"]):
@@ -93,13 +94,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict[str, Any
     except JWTError:
         raise credentials_exception
 
-    user = get_user(username=token_data.username)
+    user = get_user_in_db(username=token_data.username)
 
     if user is None:
         raise credentials_exception
 
     return user
-
 
 def confirm_admin_body_legit(user_id, username):
     q = {}
@@ -120,7 +120,7 @@ def confirm_admin_body_legit(user_id, username):
 
     elif username:
         q = {"username": username}
-        u = get_user(username)
+        u = get_user_in_db(username)
         if not u:
             return JSONResponse(status_code=HTTPStatus.NOT_FOUND,
                                 content={"detail": "username provided isn't assigned to any user"})
@@ -130,3 +130,26 @@ def confirm_admin_body_legit(user_id, username):
                                 content={"detail": "a superadmin can't alter status of superadmin"})
 
     return q
+
+
+def validate_ref(user_data: SignupUser):
+    new_user_id = str(uuid4()).replace('-', '')
+    _id = str(uuid4()).replace('-', '')
+
+    u = get_user_in_db({"refferal_code": user_data.refferer_id})
+    if not u:
+        return {"verify": False, "data": {"assign_id": new_user_id, }}
+
+    ref_obj = {
+        "_id": _id,
+        "active": False,
+        "referral_user_id": str(u["_id"]),
+        "referred_user_id": new_user_id,
+        "referral_code": user_data.refferer_id
+    }
+
+    user = db["user"]
+
+
+    return ref
+

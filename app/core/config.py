@@ -7,6 +7,7 @@ BASE_DIR = ROOT.parent  # ./
 
 config = Config(BASE_DIR / ".env")
 
+API_URL = config("API_URL", str)
 
 API_USERNAME = config("API_USERNAME", str)
 API_PASSWORD = config("API_PASSWORD", str)

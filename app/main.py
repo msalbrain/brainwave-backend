@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 
@@ -19,8 +19,14 @@ app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-app.include_router(views.router)
-app.include_router(auth.auth)
+
+
+v1 = APIRouter(prefix="/v1")
+
+v1.include_router(auth.auth)
+v1.include_router(views.router)
+
+app.include_router(v1)
 app.include_router(views.cdn)
 
 def custom_openapi():
@@ -28,12 +34,12 @@ def custom_openapi():
         return app.openapi_schema
     openapi_schema = get_openapi(
         title="Brainwave API",
-        version="0.1.7",
+        version="0.1.0",
         description=DESCRIPTION,
         routes=app.routes
     )
     openapi_schema["info"]["x-logo"] = {
-        "url": "http://127.0.0.1:5000/image/logo.svg"
+        "url": "http://20.127.29.255/image/logo.svg"
     }
     app.openapi_schema = openapi_schema
     return app.openapi_schema

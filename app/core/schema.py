@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, List
 
 from pydantic import BaseModel, HttpUrl, EmailStr
 
@@ -13,25 +13,48 @@ class User(BaseModel):
     username: EmailStr
 
 
-class UserInDB(User):
-    disabled: Optional[bool] = None
-    password: str
-    admin: str
-    created: int | float
-
 class RefToken(BaseModel):
     token: str
 
+
+class Platform(BaseModel):
+    allow_invite: bool = True
+    new_notifications: bool = True
+    metioned: bool = True
+
+
+class UserSetting(BaseModel):
+    theme: str = ""
+    platform: Platform
+    teams: Platform
+
+
+class partialUser(User):
+    firstname: str
+    lastname: str
+    location: Optional[str] = ""
+    created: int | float  # this is in unix time
+    disabled: bool
+    refferal_code: str
+
+class AdminUserList(BaseModel):
+    users: List[partialUser] = []
 
 class CurrentUser(User):
     id: str
     firstname: str
     lastname: str
+    bio: Optional[str] = ""
+    location: Optional[str] = ""
     avatar_url: Optional[HttpUrl]
-    created: int | float # this is dada do
+    created: int | float  # this is in unix time
+    disabled: bool
     refferal_code: str
     no_of_referrals: int
     country: str
+    settings: UserSetting
+
+
 
     class Config:
         schema_extra = {
@@ -59,6 +82,8 @@ class SignUpBase(User):
     lastname: str
     country: str
     avatar_url: Optional[HttpUrl] = None
+    bio: Optional[str] = ""
+    location: Optional[str] = ""
 
 
 class UpdateBase(BaseModel):
@@ -81,10 +106,16 @@ class AdminBlock(AdminUpgrade):
     pass
 
 
+
+
 class SignupUser(SignUpBase):
     password: str
     refferer_id: Optional[str] = None
     google_id: Optional[str] = None
+
+
+class Refer(BaseModel):
+    refferer_id: Optional[str] = None
 
 
 class Token(BaseModel):

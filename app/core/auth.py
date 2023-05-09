@@ -17,9 +17,11 @@ from app.core import config
 from app.database import helpers, db
 from app.utils import get_random_string, get_unix_time
 from .schema import Token, TokenData, AdminUpgrade, AdminDowngrade, \
-    UpdateBase, SignupReturn, SignupUser, AdminBlock, AuthError, CurrentUser, RefToken
-from app.core.utils import verify_password, get_password_hash, get_user_by_id, get_current_user, \
-    get_user, authenticate_user, confirm_admin_body_legit, create_access_token
+    UpdateBase, SignupReturn, SignupUser, AdminBlock, AuthError,\
+    CurrentUser, RefToken, AdminUserList
+
+from app.core.utils import get_password_hash, get_user_by_id, get_current_user, \
+    get_user_in_db, authenticate_user, confirm_admin_body_legit, create_access_token, validate_ref
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
@@ -30,12 +32,15 @@ auth = APIRouter(prefix="/user", tags=["Authentication"])
 async def create_new_user(
         request: Request, user_data: SignupUser = Body(...)
 ) -> dict[str, Any]:
-    u = get_user(user_data.username)
+    u = get_user_in_db(user_data.username)
+
     if u:
         raise HTTPException(
             status_code=409,
             detail="user already exist",
         )
+
+    ref = validate_ref(user_data)
 
     user = db.db["user"]
     dp_image = ""
@@ -45,10 +50,13 @@ async def create_new_user(
     # elif avatar:
     #     dp_image = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRskHid7mZQ0cFayfddXhv10ZSCadb06LRuTg&usqp=CAU"
 
+    t = get_unix_time()
     d = {
         "firstname": user_data.firstname,
         "lastname": user_data.lastname,
         "username": user_data.username,
+        "bio": user_data.bio,
+        "location": user_data.location,
         "avatar_url": dp_image,
         "refferal_code": str(uuid4()).replace('-', ''),
         "no_of_referrals": 0,
@@ -58,7 +66,21 @@ async def create_new_user(
         "disabled": False,
         "superadmin": False,
         "subadmin": False,
-        "created": get_unix_time()
+        "updated": t,
+        "created": t,
+        "settings": {
+            "theme": "light",
+            "platform": {
+                "allow_invite": True,
+                "new_notifications": True,
+                "metioned": True
+            },
+            "teams": {
+                "allow_invite": True,
+                "new_notifications": True,
+                "metioned": True
+            }
+        }
     }
 
     # print(d)
@@ -72,7 +94,6 @@ async def create_new_user(
 async def login_for_access_token(
         form_data: OAuth2PasswordRequestForm = Depends()
 ) -> dict[str, Any]:
-
     user = authenticate_user(
         form_data.username,
         form_data.password
@@ -247,7 +268,7 @@ async def block_user(
     username = data.username
 
     by_id = get_user_by_id(id)
-    by_username = get_user(username)
+    by_username = get_user_in_db(username)
 
     q = {}
     user = {}
@@ -285,4 +306,22 @@ async def block_user(
         raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
                             detail="you do not have the authority to block this user")
 
+
+
+@auth.post("/admin/user-list", response_model=AdminUserList)
+async def user_list(
+        auth: Depends = Depends(get_current_user)
+) -> dict[str, Any]:
+    is_admin = auth["subadmin"]
+    if not is_admin:
+        raise HTTPException(status_code=401, detail="not authorised")
+
+
+    return []
+
+
+
 # ------------------------ END ADMIN ------------------------------
+
+
+

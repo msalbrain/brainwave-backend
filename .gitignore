@@ -6,6 +6,8 @@ __pycache__/
 ./brainwave
 ./static
 
+randfile.py
+idea.json
 .idea
 .env
 

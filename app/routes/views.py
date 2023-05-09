@@ -131,7 +131,7 @@ def create_payment(
         }
 
 
-@payment.post("/create-payment-intent")
+@payment.post("/stripe-event")
 async def create_payment(
         item: Any,
         request: Request,

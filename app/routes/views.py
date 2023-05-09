@@ -132,7 +132,7 @@ def create_payment(
 
 
 @payment.post("/stripe-event")
-async def create_payment(
+async def stripe_event(
         item: Any,
         request: Request,
         auth: Depends = Depends(get_current_user)):

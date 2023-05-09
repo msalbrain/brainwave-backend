@@ -137,7 +137,6 @@ async def stripe_event(
         request: Request,
         auth: Depends = Depends(get_current_user)):
 
-
         event = None
 
         try:

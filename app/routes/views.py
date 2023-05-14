@@ -11,6 +11,7 @@ from app.apis.api_a.mainmod import main_func as main_func_a
 from app.core.auth import get_current_user
 from app.core.schema import IndexReturn
 from app.database.db import client
+from app.database.cache import r
 
 from typing import Any
 
@@ -55,11 +56,22 @@ def database_check():
 
 
 def cache_check():
-    return {
-        "cache": {
-            "status": "offline"
+    try:
+        stat = r.client_info()
+        if stat:
+            return {
+                "cache": {
+                    "status": "online",
+                }
+            }
+    except:
+        return {
+            "cache": {
+                "status": "offline",
+            }
         }
-    }
+
+
     # if client.server_info().get("ok") != 1:
     #     return {
     #         "database": {

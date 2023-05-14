@@ -17,6 +17,7 @@ from app.database import helpers, db
 from app.utils import get_unix_time
 from .schema import TokenData, SignupUser
 from app.database.helpers import get_user_in_db, update_user
+from app.database import helpers as db_helper
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
@@ -168,12 +169,16 @@ def validate_ref(user_data: SignupUser):
 
 def generate_password_change_object(user_id):
     t = get_unix_time()
+    tok = str(uuid4()).replace("-", "")
+
     d = {
         "created": t,
         "expire": t + 600,
-        "token": str(uuid4()).replace("-", ""),
+        "token": tok,
         "user_id": user_id
     }
+
+    db_helper.add_to_cache(d,exp=10, key=tok)
 
     return d
 

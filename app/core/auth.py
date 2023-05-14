@@ -7,7 +7,7 @@ from typing import Any, Optional, Union
 from pydantic import HttpUrl, EmailStr
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Request, File, \
-    Body, BackgroundTasks
+    Body, BackgroundTasks, Query
 from fastapi.logger import logger
 from fastapi.responses import JSONResponse
 from fastapi_jwt_auth import AuthJWT
@@ -19,7 +19,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.core import config
-from app.database import helpers, db
+from app.database import helpers as db_helper, db, cache
+
 from app.utils import get_random_string, get_unix_time
 from .schema import Token, TokenData, AdminUpgrade, AdminDowngrade, \
     UpdateBase, SignupReturn, SignupUser, AdminBlock, AuthError, \
@@ -59,7 +60,7 @@ async def create_new_user(
        the system.
        **Note**: Any parameter not being used shouldn't be added.
 
-        - **username**: `required` eahch user must be an email.
+        - **username**: `required` each user must be an email.
         - **password**: `required` each user must have a password.
         - **firstname**: `required` each user must have a firstname.
         - **lastname**: `required` each user must have a lastname.
@@ -114,6 +115,7 @@ async def create_new_user(
         "disabled": False,
         "super_admin": False,
         "sub_admin": False,
+        "subcribed": False,
         "updated": t,
         "created": t,
         "settings": {
@@ -160,6 +162,8 @@ async def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    user["id"] = str(user["_id"])
+
     access_token = Authorize.create_access_token(subject=user["username"],
                                                  expires_time=config.API_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
                                                  algorithm=config.API_ALGORITHM,
@@ -175,7 +179,9 @@ async def login_for_access_token(
     # Authorize.set_access_cookies(access_token)
     # Authorize.set_refresh_cookies(refresh_token)
     # return {"msg": "Successfully login"}
-    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer",
+            "user": user}
 
 
 @auth.post('/refresh')
@@ -239,8 +245,8 @@ async def add_avatar(
         f.write(content)
         f.close()
 
-        helpers.update_user({"_id": auth["_id"]},
-                            {"avatar": str(request.base_url) + f"image/{avatar.filename}"})
+        db_helper.update_user({"_id": auth["_id"]},
+                              {"avatar": str(request.base_url) + f"image/{avatar.filename}"})
     except Exception as e:
         return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
                             content={"detail": f"some internal issues\n {e}"})
@@ -294,7 +300,7 @@ async def update_user(
     if not changer:
         return {"status": 200, "message": "no change due to empty body", "error": ""}
 
-    up = helpers.update_user({"_id": auth["_id"]}, changer)
+    up = db_helper.update_user({"_id": auth["_id"]}, changer)
 
     if not up:
         raise HTTPException(status_code=HTTPStatus.CONFLICT, detail="sorry some error occured while updating the user")
@@ -353,7 +359,7 @@ async def delete_user(Authorize: AuthJWT = Depends()):
         return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
                             content={"detail": f"user not found"})
 
-    d = helpers.delete_user({"username": auth["username"]})
+    d = db_helper.delete_user({"username": auth["username"]})
     if d:
         return {"status": 200, "message": f"successfully deleted user {auth['username']}", "error": ""}
 
@@ -373,6 +379,8 @@ async def forget_password(background_tasks: BackgroundTasks, username: EmailStr 
         raise HTTPException(status_code=404,
                             detail=f"user with username {username} doesn't exist")
 
+    g = generate_password_change_object(user["_id"])
+
     link = "https://brainwave-five.vercel.app"
 
     message = MessageSchema(
@@ -382,7 +390,7 @@ async def forget_password(background_tasks: BackgroundTasks, username: EmailStr 
             "app_name": "brainwave",
             "title": "Verify password",
             "firstname": user["firstname"],
-            "link": "https://brainwave-five.vercel.app",
+            "link": "https://brainwave-five.vercel.app/new-password" + f"?upt={g['token']}",
             "button_title": "Reset Password",
             "support_email": "salman2019@gmail.com",
         }, subtype=MessageType.html)
@@ -393,8 +401,9 @@ async def forget_password(background_tasks: BackgroundTasks, username: EmailStr 
 
     return {"status": 200, "message": f"an email has been sent to {username}", "error": ""}
 
+
 @auth.post("/send_password_change_token", response_model=SignupReturn, responses={409: {"model": AuthError}})
-async def send_password_change_token(background_tasks: BackgroundTasks ,Authorize: AuthJWT = Depends()):
+async def send_password_change_token(background_tasks: BackgroundTasks, Authorize: AuthJWT = Depends()):
     """
             Just like to forget password flow, sends a forget password email to it. But `access token needed`
 
@@ -429,9 +438,36 @@ async def send_password_change_token(background_tasks: BackgroundTasks ,Authoriz
     return {"status": 200, "message": f"an email has been sent to {auth['username']}", "error": ""}
 
 
-@auth.post("/update-password", response_model=SignupReturn, responses={409: {"model": AuthError}})
+@auth.post("/update-password", response_model=SignupReturn, responses={409: {"model": AuthError},
+                                                                       401: {"model": AuthError}
+                                                                       })
 async def update_password(background_tasks: BackgroundTasks, update_info: UpdatePassword = Body(...)):
-    pass
+    check_cache = db_helper.get_from_cache(update_info.token)
+
+    if not check_cache:
+        raise HTTPException(status_code=401, detail="token has expired or is invalid")
+    else:
+        cache.r.expire("runner", timedelta(seconds=1))
+        db_helper.update_user({"_id": check_cache["user_id"]}, {"password": get_password_hash(UpdatePassword.new_password)})
+        u = get_user_by_id(check_cache["user_id"])
+
+    message = MessageSchema(
+        subject="Successfully Updating Your Password!",
+        recipients=[u["username"]],
+        template_body={
+            "app_name": "brainwave",
+            "title": "password change",
+            "firstname": u["firstname"],
+            "support_email": "salman2019@gmail.com",
+        }, subtype=MessageType.html)
+    fm = FastMail(conf)
+
+    # await fm.send_message(message)
+    background_tasks.add_task(fm.send_message, message, template_name="success-password-change.html")
+
+    return {"status": 200, "message":"", "error": ""}
+
+
 
 
 
@@ -462,7 +498,7 @@ async def upgrade_to_admin(
     if auth["superadmin"] and auth["subadmin"]:
         q = confirm_admin_body_legit(id, username)
 
-        up = helpers.update_user(q, {"subadmin": True})
+        up = db_helper.update_user(q, {"subadmin": True})
 
         if not up:
             raise HTTPException(status_code=HTTPStatus.CONFLICT,
@@ -499,7 +535,7 @@ async def downgrade_from_admin(
     if auth["superadmin"] and auth["subadmin"]:
         q = confirm_admin_body_legit(id, username)
 
-        up = helpers.update_user(q, {"subadmin": False})
+        up = db_helper.update_user(q, {"subadmin": False})
 
         if not up:
             raise HTTPException(status_code=HTTPStatus.CONFLICT,
@@ -552,7 +588,7 @@ async def block_user(
 
     if not user["subadmin"] and auth["subadmin"] and not auth["disabled"]:
 
-        up = helpers.update_user(q, {"disabled": True})
+        up = db_helper.update_user(q, {"disabled": True})
 
         if not up:
             raise HTTPException(status_code=HTTPStatus.CONFLICT,
@@ -562,7 +598,7 @@ async def block_user(
 
     elif user["subadmin"] and auth["superadmin"] and not auth["disabled"]:
 
-        up = helpers.update_user(q, {"disabled": True})
+        up = db_helper.update_user(q, {"disabled": True})
 
         if not up:
             raise HTTPException(status_code=HTTPStatus.CONFLICT,
@@ -577,6 +613,8 @@ async def block_user(
 
 @auth.post("/admin/user-list", response_model=AdminUserList)
 async def user_list(
+        limit: int = Query(gt=0, ),
+        page: int = Query(gt=0),
         Authorize: AuthJWT = Depends()
 ) -> dict[str, Any] | JSONResponse:
     Authorize.jwt_required()
@@ -591,6 +629,25 @@ async def user_list(
     if not is_admin:
         raise HTTPException(status_code=401, detail="not authorised")
 
-    return []
+    u = db_helper.skiplimit({}, db["user"], page_size=limit, page_num=page)
+    total = db_helper.get_total({}, db["user"])
+
+    h = []
+    if u:
+        for i in u:
+            if i["sub_admin"] or i["super_admin"]:
+                i["group"] = "admin"
+            else:
+                i["group"] = "user"
+            h.append(i)
+
+    ret = {
+        "users": h,
+        "limit": limit,
+        "page": page,
+        "total": total
+    }
+
+    return ret
 
 # ------------------------ END ADMIN ------------------------------

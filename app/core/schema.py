@@ -35,10 +35,16 @@ class partialUser(User):
     location: Optional[str] = ""
     created: int | float  # this is in unix time
     disabled: bool
+    group: str
+    words_left: int = 0
+    image_left: int = 0
     refferal_code: str
 
 class AdminUserList(BaseModel):
     users: List[partialUser] = []
+    total: int = 0
+    limit: int = 1
+    page: int = 1
 
 class CurrentUser(User):
     id: str
@@ -49,7 +55,7 @@ class CurrentUser(User):
     avatar_url: Optional[HttpUrl] = "https://picsum.photos/536/354"
     created: int | float  # this is in unix time
     disabled: bool
-    refferal_code: str
+    referral_code: str
     list_of_referral: Optional[list[str]]
     list_of_verified_referral: Optional[list[str]]
     country: str
@@ -96,6 +102,18 @@ class UpdateBase(BaseModel):
     bio: Optional[str]
 
 
+class SignupUser(SignUpBase):
+    password: str
+    referrer_id: Optional[str] = None
+    google_id: Optional[str] = None
+
+
+
+class LoginUser(BaseModel):
+    username: str
+    password: str
+
+
 class AdminUpgrade(BaseModel):
     id: Optional[str]
     username: Optional[str]
@@ -109,18 +127,6 @@ class AdminBlock(AdminUpgrade):
     pass
 
 
-
-class SignupUser(SignUpBase):
-    password: str
-    referrer_id: Optional[str] = None
-    google_id: Optional[str] = None
-
-
-class LoginUser(BaseModel):
-    username: str
-    password: str
-
-
 class Refer(BaseModel):
     refferer_id: Optional[str] = None
 
@@ -129,6 +135,8 @@ class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str
+    user: CurrentUser
+
 
 
 class TokenData(BaseModel):
@@ -142,4 +150,5 @@ class AuthError(BaseModel):
 class UpdatePassword(BaseModel):
     new_password: str
     token: str
+
 

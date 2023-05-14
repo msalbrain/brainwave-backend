@@ -28,6 +28,10 @@ USER_DEFAULT_IMAGE = config("USER_DEFAULT_IMAGE", str)
 MONGODB_URL = config("MONGODB_URL", str)
 MONGODB_DBNAME = config("MONGODB_DBNAME", str)
 
+# Redis config
+REDIS_HOST = config("REDIS_HOST", str)
+REDIS_PORT = config("REDIS_PORT", str)
+
 
 # Mail config
 MAIL_USERNAME = config("MAIL_USERNAME", str)

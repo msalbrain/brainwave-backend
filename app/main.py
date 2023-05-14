@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter, Request
+from fastapi import FastAPI, APIRouter, Request, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
 
@@ -23,6 +24,15 @@ app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
+@app.get("/", include_in_schema=False)
+def index():
+    try:
+        open(f"static/image/logo.svg")
+    except:
+        raise HTTPException(status_code=409, detail="image not passed correctly")
+    else:
+        return FileResponse(f"static/image/logo.svg")
 
 
 v1 = APIRouter(prefix="/v1")
@@ -55,7 +65,7 @@ app.openapi = custom_openapi
 # Set all CORS enabled origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*", "127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

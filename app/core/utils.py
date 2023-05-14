@@ -145,10 +145,14 @@ def validate_ref(user_data: SignupUser):
 
     u = get_user_in_db({"referral_code": user_data.referrer_id})
     if not u:
+        print(u)
         return {"verify": False, "data": {"assign_id": new_user_id, }}
+
     elif u["username"] == user_data.username:
         raise HTTPException(status_code=409,
                             detail=f"referral code provide belongs to username `{user_data.username}` provided.")
+
+    print(u)
 
     ref_obj = {
         "_id": _id,

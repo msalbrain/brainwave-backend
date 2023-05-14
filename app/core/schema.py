@@ -46,11 +46,12 @@ class CurrentUser(User):
     lastname: str
     bio: Optional[str] = ""
     location: Optional[str] = ""
-    avatar_url: Optional[HttpUrl]
+    avatar_url: Optional[HttpUrl] = "https://picsum.photos/536/354"
     created: int | float  # this is in unix time
     disabled: bool
     refferal_code: str
-    no_of_referrals: int
+    list_of_referral: Optional[list[str]]
+    list_of_verified_referral: Optional[list[str]]
     country: str
     settings: UserSetting
 
@@ -90,7 +91,9 @@ class UpdateBase(BaseModel):
     firstname: Optional[str]
     lastname: Optional[str]
     country: Optional[str]
+    location: Optional[str]
     avatar_url: Optional[HttpUrl] = None
+    bio: Optional[str]
 
 
 class AdminUpgrade(BaseModel):
@@ -107,11 +110,15 @@ class AdminBlock(AdminUpgrade):
 
 
 
-
 class SignupUser(SignUpBase):
     password: str
-    refferer_id: Optional[str] = None
+    referrer_id: Optional[str] = None
     google_id: Optional[str] = None
+
+
+class LoginUser(BaseModel):
+    username: str
+    password: str
 
 
 class Refer(BaseModel):
@@ -120,6 +127,7 @@ class Refer(BaseModel):
 
 class Token(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str
 
 
@@ -129,3 +137,9 @@ class TokenData(BaseModel):
 
 class AuthError(BaseModel):
     detail: str
+
+
+class UpdatePassword(BaseModel):
+    new_password: str
+    token: str
+

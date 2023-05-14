@@ -138,10 +138,8 @@ async def stripe_event(
         auth: Depends = Depends(get_current_user)):
 
         event = None
-
         try:
             payload = await request.json()
-
         except:
             HTTPException(status_code=400, detail="issues receiving webhook event")
 

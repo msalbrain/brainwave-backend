@@ -256,7 +256,7 @@ async def add_avatar(
 
 
 @auth.put("/update", response_model=SignupReturn,
-          responses={401: {"model": AuthError}, 409: {"model": AuthError, "description": "mistake"}})
+          responses={401: {"model": AuthError}, 409: {"model": AuthError, "description": ""}, 422: {"description": "empty body"}})
 async def update_user(
         user_data: Optional[UpdateBase] = Body(title="user update"),
         Authorize: AuthJWT = Depends()

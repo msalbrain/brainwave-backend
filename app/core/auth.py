@@ -6,7 +6,6 @@ from http import HTTPStatus
 from typing import Any, Optional, Union
 from pydantic import HttpUrl, EmailStr, ValidationError
 
-
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Request, File, \
     Body, BackgroundTasks, Query, Header
 from fastapi.logger import logger
@@ -247,7 +246,7 @@ async def add_avatar(
         f.close()
 
         ups = db_helper.update_user({"_id": auth["_id"]},
-                              {"avatar_url": f"/image/{avatar.filename}"})
+                                    {"avatar_url": f"/image/{avatar.filename}"})
 
     except Exception as e:
         return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
@@ -337,12 +336,11 @@ async def get_current_user(Authorize: AuthJWT = Depends()):
 
 
 @auth.get("/referral-code", responses={200: {"model": RefToken}, 401: {"model": AuthError}})
-async def get_token_code(request: Request, Authorize: AuthJWT = Depends()):
+async def get_referral_token(Authorize: AuthJWT = Depends()):
     """
         This returns the referral token of a user. `access token needed`
 
-       """
-
+    """
     Authorize.jwt_required()
     auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
 
@@ -350,7 +348,7 @@ async def get_token_code(request: Request, Authorize: AuthJWT = Depends()):
         return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
                             content={"detail": f"user not found"})
 
-    return {"token": auth.get('refferal_code')}
+    return {"token": auth.get('referral_code')}
 
 
 @auth.delete("/delete", response_model=SignupReturn, responses={409: {"model": AuthError}})
@@ -456,7 +454,8 @@ async def update_password(background_tasks: BackgroundTasks, update_info: Update
         raise HTTPException(status_code=401, detail="token has expired or is invalid")
     else:
         cache.r.expire("runner", timedelta(seconds=1))
-        db_helper.update_user({"_id": check_cache["user_id"]}, {"password": get_password_hash(UpdatePassword.new_password)})
+        db_helper.update_user({"_id": check_cache["user_id"]},
+                              {"password": get_password_hash(UpdatePassword.new_password)})
         u = get_user_by_id(check_cache["user_id"])
 
     message = MessageSchema(
@@ -473,10 +472,7 @@ async def update_password(background_tasks: BackgroundTasks, update_info: Update
     # await fm.send_message(message)
     background_tasks.add_task(fm.send_message, message, template_name="success-password-change.html")
 
-    return {"status": 200, "message":"", "error": ""}
-
-
-
+    return {"status": 200, "message": "", "error": ""}
 
 
 # ------------------------ ADMIN ------------------------------
@@ -580,7 +576,7 @@ async def block_user(
     username = data.username
 
     by_id = get_user_by_id(id)
-    by_username = get_user_in_db({"username" : data.username})
+    by_username = get_user_in_db({"username": data.username})
 
     q = {}
     user = {}

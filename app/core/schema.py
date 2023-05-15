@@ -147,6 +147,9 @@ class AuthError(BaseModel):
     detail: str
 
 
+class ForgetPasswordRequest(BaseModel):
+    username: EmailStr
+
 class UpdatePassword(BaseModel):
     new_password: str
     token: str

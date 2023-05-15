@@ -24,7 +24,8 @@ from app.database import helpers as db_helper, db, cache
 from app.utils import get_random_string, get_unix_time
 from .schema import Token, TokenData, AdminUpgrade, AdminDowngrade, \
     UpdateBase, SignupReturn, SignupUser, AdminBlock, AuthError, \
-    CurrentUser, RefToken, AdminUserList, LoginUser, UpdatePassword
+    CurrentUser, RefToken, AdminUserList, LoginUser, \
+    UpdatePassword, ForgetPasswordRequest
 
 from app.core.utils import get_password_hash, get_user_by_id, get_current_user, \
     get_user_in_db, authenticate_user, confirm_admin_body_legit, validate_ref, generate_password_change_object
@@ -373,7 +374,7 @@ async def delete_user(Authorize: AuthJWT = Depends()):
 
 
 @auth.post("/forget-password", response_model=SignupReturn, responses={409: {"model": AuthError}})
-async def forget_password(background_tasks: BackgroundTasks, username: EmailStr = Body(...)):
+async def forget_password(background_tasks: BackgroundTasks, username: ForgetPasswordRequest):
     """
         forget password flow. This route accepts an email in the username field and sends a forget password
         email to it.

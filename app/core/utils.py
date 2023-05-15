@@ -36,7 +36,7 @@ def get_password_hash(password: str) -> str:
 def get_user_by_id(
         user_id: str
 ) -> dict[str, Any] | None:
-    return helpers.get_user_in_db({"_id": ObjectId(user_id)})
+    return helpers.get_user_in_db({"_id": user_id})
 
 
 def get_user(

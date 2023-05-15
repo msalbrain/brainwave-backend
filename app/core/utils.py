@@ -4,6 +4,7 @@ from uuid import uuid4
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Optional, Union
+import pickle
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Request, File, Body
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm

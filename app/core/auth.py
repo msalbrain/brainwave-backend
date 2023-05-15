@@ -641,6 +641,7 @@ async def user_list(
     h = []
     if u:
         for i in u:
+            i["id"] = i["_id"]
             if i["sub_admin"] or i["super_admin"]:
                 i["group"] = "admin"
             else:

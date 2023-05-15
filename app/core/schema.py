@@ -30,6 +30,7 @@ class UserSetting(BaseModel):
 
 
 class partialUser(User):
+    id: str
     firstname: str
     lastname: str
     location: Optional[str] = ""
@@ -38,7 +39,7 @@ class partialUser(User):
     group: str
     words_left: int = 0
     image_left: int = 0
-    refferal_code: str
+    referral_code: str
 
 class AdminUserList(BaseModel):
     users: List[partialUser] = []

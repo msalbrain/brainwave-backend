@@ -635,8 +635,8 @@ async def user_list(
     if not is_admin:
         raise HTTPException(status_code=401, detail="not authorised")
 
-    u = db_helper.skiplimit({}, db["user"], page_size=limit, page_num=page)
-    total = db_helper.get_total({}, db["user"])
+    u = db_helper.skiplimit({}, db.db["user"], page_size=limit, page_num=page)
+    total = db_helper.get_total({}, db.db["user"])
 
     h = []
     if u:

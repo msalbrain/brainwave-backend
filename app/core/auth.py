@@ -75,7 +75,7 @@ async def create_new_user(
        :param user_data: User input.
        """
 
-    u = get_user_in_db(user_data.username)
+    u = get_user_in_db({"username": user_data.username})
 
     if u:
         raise HTTPException(
@@ -337,7 +337,7 @@ async def get_current_user(Authorize: AuthJWT = Depends()):
 
 
 @auth.get("/referral-code", responses={200: {"model": RefToken}, 401: {"model": AuthError}})
-async def get_token(request: Request, Authorize: AuthJWT = Depends()):
+async def get_token_code(request: Request, Authorize: AuthJWT = Depends()):
     """
         This returns the referral token of a user. `access token needed`
 
@@ -580,7 +580,7 @@ async def block_user(
     username = data.username
 
     by_id = get_user_by_id(id)
-    by_username = get_user_in_db(username)
+    by_username = get_user_in_db({"username" : data.username})
 
     q = {}
     user = {}

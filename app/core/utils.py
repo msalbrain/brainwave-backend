@@ -96,7 +96,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict[str, Any
     except JWTError:
         raise credentials_exception
 
-    user = get_user_in_db(username=token_data.username)
+    user = get_user_in_db({"username": token_data.username})
 
     if user is None:
         raise credentials_exception
@@ -123,7 +123,7 @@ def confirm_admin_body_legit(user_id, username):
 
     elif username:
         q = {"username": username}
-        u = get_user_in_db(username)
+        u = get_user_in_db(q)
         if not u:
             return JSONResponse(status_code=HTTPStatus.NOT_FOUND,
                                 content={"detail": "username provided isn't assigned to any user"})

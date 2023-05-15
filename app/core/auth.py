@@ -381,10 +381,11 @@ async def forget_password(background_tasks: BackgroundTasks, username: ForgetPas
 
        """
 
-    user = get_user_in_db({"username": username})
+
+    user = get_user_in_db({"username": username.username})
     if not user:
         raise HTTPException(status_code=404,
-                            detail=f"user with username {username} doesn't exist")
+                            detail=f"user with username {username.username} doesn't exist")
 
     g = generate_password_change_object(user["_id"])
 
@@ -392,7 +393,7 @@ async def forget_password(background_tasks: BackgroundTasks, username: ForgetPas
 
     message = MessageSchema(
         subject="Reset Your Password - Action Required",
-        recipients=[username],
+        recipients=[username.username],
         template_body={
             "app_name": "brainwave",
             "title": "Verify password",
@@ -406,7 +407,7 @@ async def forget_password(background_tasks: BackgroundTasks, username: ForgetPas
     # await fm.send_message(message)
     background_tasks.add_task(fm.send_message, message, template_name="verify-password-change.html")
 
-    return {"status": 200, "message": f"an email has been sent to {username}", "error": ""}
+    return {"status": 200, "message": f"an email has been sent to {username.username}", "error": ""}
 
 
 @auth.post("/send_password_change_token", response_model=SignupReturn, responses={409: {"model": AuthError}})

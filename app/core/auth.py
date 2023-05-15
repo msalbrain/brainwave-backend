@@ -374,7 +374,7 @@ async def delete_user(Authorize: AuthJWT = Depends()):
 
 
 @auth.post("/forget-password", response_model=SignupReturn, responses={409: {"model": AuthError}})
-async def forget_password(background_tasks: BackgroundTasks, username: ForgetPasswordRequest):
+async def forget_password(background_tasks: BackgroundTasks, username: EmailStr = Query(...)):
     """
         forget password flow. This route accepts an email in the username field and sends a forget password
         email to it.
@@ -382,10 +382,10 @@ async def forget_password(background_tasks: BackgroundTasks, username: ForgetPas
        """
 
 
-    user = get_user_in_db({"username": username.username})
+    user = get_user_in_db({"username": username})
     if not user:
         raise HTTPException(status_code=404,
-                            detail=f"user with username {username.username} doesn't exist")
+                            detail=f"user with username {username} doesn't exist")
 
     g = generate_password_change_object(user["_id"])
 
@@ -393,7 +393,7 @@ async def forget_password(background_tasks: BackgroundTasks, username: ForgetPas
 
     message = MessageSchema(
         subject="Reset Your Password - Action Required",
-        recipients=[username.username],
+        recipients=[username],
         template_body={
             "app_name": "brainwave",
             "title": "Verify password",
@@ -407,7 +407,7 @@ async def forget_password(background_tasks: BackgroundTasks, username: ForgetPas
     # await fm.send_message(message)
     background_tasks.add_task(fm.send_message, message, template_name="verify-password-change.html")
 
-    return {"status": 200, "message": f"an email has been sent to {username.username}", "error": ""}
+    return {"status": 200, "message": f"an email has been sent to {username}", "error": ""}
 
 
 @auth.post("/send_password_change_token", response_model=SignupReturn, responses={409: {"model": AuthError}})

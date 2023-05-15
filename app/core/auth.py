@@ -328,10 +328,10 @@ async def get_current_user(Authorize: AuthJWT = Depends()):
     auth["avatar_url"] = config.API_URL + auth["avatar_url"]
     avatar_url = ""
     num = 0
-    if str(auth["avatar_url"]).count("//") > 1:
-        auth["avatar_url"] = ""
-
-    auth["id"] = str(auth["_id"])
+    # if str(auth["avatar_url"]).count("//") > 1:
+    #     auth["avatar_url"] = ""
+    #
+    # auth["id"] = str(auth["_id"])
 
     return auth
 

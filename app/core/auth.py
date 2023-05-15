@@ -331,7 +331,7 @@ async def get_current_user(Authorize: AuthJWT = Depends()):
     # if str(auth["avatar_url"]).count("//") > 1:
     #     auth["avatar_url"] = ""
     #
-    # auth["id"] = str(auth["_id"])
+    auth["id"] = str(auth["_id"])
 
     return auth
 

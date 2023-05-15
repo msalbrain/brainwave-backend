@@ -38,7 +38,7 @@ def skiplimit(query, coll, page_size, page_num):
 
 
 def get_total(query, coll):
-    total = db["user"].count_documents()
+    total = db["user"].count_documents({})
 
     return total
 

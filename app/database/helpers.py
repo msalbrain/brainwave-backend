@@ -15,9 +15,7 @@ def get_user_in_db(fields):
 def update_user(query, new_values) -> bool:
     u = user.update_one(query, {"$set": new_values})
 
-    if u.raw_result:
-        return True
-    return False
+    return u
 
 
 def delete_user(filter):

@@ -246,8 +246,9 @@ async def add_avatar(
         f.write(content)
         f.close()
 
-        db_helper.update_user({"_id": auth["_id"]},
-                              {"avatar": str(request.base_url) + f"image/{avatar.filename}"})
+        ups = db_helper.update_user({"_id": auth["_id"]},
+                              {"avatar_url": str(request.base_url) + f"image/{avatar.filename}"})
+
     except Exception as e:
         return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
                             content={"detail": f"some internal issues\n {e}"})
@@ -256,7 +257,7 @@ async def add_avatar(
 
 
 @auth.put("/update", response_model=SignupReturn,
-          responses={401: {"model": AuthError}, 409: {"model": AuthError, "description": ""}, 422: {"description": "empty body"}})
+          responses={401: {"model": AuthError}, 409: {"model": AuthError, "description": ""}})
 async def update_user(
         user_data: Optional[UpdateBase] = Body(title="user update"),
         Authorize: AuthJWT = Depends()

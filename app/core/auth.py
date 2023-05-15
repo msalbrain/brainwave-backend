@@ -7,7 +7,7 @@ from typing import Any, Optional, Union
 from pydantic import HttpUrl, EmailStr
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Request, File, \
-    Body, BackgroundTasks, Query
+    Body, BackgroundTasks, Query, Header
 from fastapi.logger import logger
 from fastapi.responses import JSONResponse
 from fastapi_jwt_auth import AuthJWT
@@ -257,7 +257,7 @@ async def add_avatar(
 @auth.put("/update", response_model=SignupReturn,
           responses={401: {"model": AuthError}, 409: {"model": AuthError}})
 async def update_user(
-        user_data: UpdateBase = Body(...),
+        user_data: Optional[UpdateBase] = Body(title="user update"),
         Authorize: AuthJWT = Depends()
 ) -> dict[str, Any] | JSONResponse:
     """

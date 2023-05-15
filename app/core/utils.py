@@ -108,7 +108,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict[str, Any
 def confirm_admin_body_legit(user_id, username):
     q = {}
     if user_id:
-        q = {"_id": ObjectId(user_id)}
+        q = {"_id": user_id}
         u = get_user_by_id(user_id)
         if not u:
             return JSONResponse(status_code=HTTPStatus.NOT_FOUND,

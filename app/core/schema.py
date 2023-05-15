@@ -52,7 +52,7 @@ class CurrentUser(User):
     lastname: str
     bio: Optional[str] = ""
     location: Optional[str] = ""
-    avatar_url: Optional[HttpUrl] = "https://picsum.photos/536/354"
+    avatar_url: Optional[str] = "https://picsum.photos/536/354"
     created: int | float  # this is in unix time
     disabled: bool
     referral_code: str

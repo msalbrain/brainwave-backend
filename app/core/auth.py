@@ -457,7 +457,7 @@ async def update_password(background_tasks: BackgroundTasks, update_info: Update
     else:
         cache.r.expire("runner", timedelta(seconds=1))
         db_helper.update_user({"_id": check_cache["user_id"]},
-                              {"password": get_password_hash(UpdatePassword.new_password)})
+                              {"password": get_password_hash(update_info.new_password)})
         u = get_user_by_id(check_cache["user_id"])
 
     message = MessageSchema(

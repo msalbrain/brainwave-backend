@@ -485,11 +485,11 @@ async def upgrade_to_admin(
         Authorize: AuthJWT = Depends()
 ) -> dict[str, Any] | JSONResponse:
     """
-    This route allows for the upgrade of user to a subadmin. It accepts a json object containing
+    This route allows for the upgrade of user to a sub_admin. It accepts a json object containing
     either an `id` or  `username`. upgrade is allowed base on privilege level i.e
 
     `
-        superadmin > subadmin > general user
+        super_admin > sub_admin > general user
     `
     """
     Authorize.jwt_required()
@@ -501,10 +501,10 @@ async def upgrade_to_admin(
 
     id = data.id
     username = data.username
-    if auth["superadmin"] and auth["subadmin"]:
+    if auth["super_admin"] and auth["sub_admin"]:
         q = confirm_admin_body_legit(id, username)
 
-        up = db_helper.update_user(q, {"subadmin": True})
+        up = db_helper.update_user(q, {"sub_admin": True})
 
         if not up:
             raise HTTPException(status_code=HTTPStatus.CONFLICT,
@@ -522,11 +522,11 @@ async def downgrade_from_admin(
         Authorize: AuthJWT = Depends()
 ) -> dict[str, Any] | JSONResponse:
     """
-    This route allows for the downgrade of user from a subadmin. It accepts a json object containing
+    This route allows for the downgrade of user from a sub_admin. It accepts a json object containing
     either an `id` or  `username`. downgrade is allowed base on privilege level i.e
 
     `
-        superadmin > subadmin > general user
+        super_admin > sub_admin > general user
     `
     """
     Authorize.jwt_required()
@@ -538,10 +538,10 @@ async def downgrade_from_admin(
 
     id = data.id
     username = data.username
-    if auth["superadmin"] and auth["subadmin"]:
+    if auth["super_admin"] and auth["sub_admin"]:
         q = confirm_admin_body_legit(id, username)
 
-        up = db_helper.update_user(q, {"subadmin": False})
+        up = db_helper.update_user(q, {"sub_admin": False})
 
         if not up:
             raise HTTPException(status_code=HTTPStatus.CONFLICT,
@@ -564,7 +564,7 @@ async def block_user(
     This route allows for the blockage of user. It accepts a json object containing
     either an `id` or  `username`. blocking is allowed base on privilege level i.e
     `
-        superadmin > subadmin > general user
+        super_admin > sub_admin > general user
     `
     """
     Authorize.jwt_required()
@@ -592,7 +592,7 @@ async def block_user(
         q = {"username": str(username)}
         user = by_username
 
-    if not user["subadmin"] and auth["subadmin"] and not auth["disabled"]:
+    if not user["sub_admin"] and auth["sub_admin"] and not auth["disabled"]:
 
         up = db_helper.update_user(q, {"disabled": True})
 
@@ -602,7 +602,7 @@ async def block_user(
 
         return {"status": 200, "message": f"successfully blocked user {user['username']}", "error": ""}
 
-    elif user["subadmin"] and auth["superadmin"] and not auth["disabled"]:
+    elif user["sub_admin"] and auth["super_admin"] and not auth["disabled"]:
 
         up = db_helper.update_user(q, {"disabled": True})
 
@@ -631,7 +631,7 @@ async def user_list(
         return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
                             content={"detail": f"user not found"})
 
-    is_admin = auth["subadmin"]
+    is_admin = auth["sub_admin"]
     if not is_admin:
         raise HTTPException(status_code=401, detail="not authorised")
 

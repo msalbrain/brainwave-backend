@@ -474,7 +474,7 @@ async def update_password(background_tasks: BackgroundTasks, update_info: Update
     # await fm.send_message(message)
     background_tasks.add_task(fm.send_message, message, template_name="success-password-change.html")
 
-    return {"status": 200, "message": "", "error": ""}
+    return {"status": 200, "message": "successfully updated password", "error": ""}
 
 
 # ------------------------ ADMIN ------------------------------

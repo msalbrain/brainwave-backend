@@ -4,7 +4,7 @@ from uuid import uuid4
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Optional, Union
-from pydantic import HttpUrl, EmailStr
+from pydantic import HttpUrl, EmailStr, ValidationError
 
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Request, File, \
@@ -256,7 +256,7 @@ async def add_avatar(
 
 
 @auth.put("/update", response_model=SignupReturn,
-          responses={401: {"model": AuthError}, 409: {"model": AuthError, "description": ""}, 422: {"description": "empty body"}})
+          responses={401: {"model": AuthError}, 409: {"model": AuthError, "description": ""}, 422: {"model": ValidationError,"description": "empty body"}})
 async def update_user(
         user_data: Optional[UpdateBase] = Body(title="user update"),
         Authorize: AuthJWT = Depends()

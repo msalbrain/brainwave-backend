@@ -247,7 +247,7 @@ async def add_avatar(
         f.close()
 
         ups = db_helper.update_user({"_id": auth["_id"]},
-                              {"avatar_url": str(request.base_url) + f"image/{avatar.filename}"})
+                              {"avatar_url": f"/image/{avatar.filename}"})
 
     except Exception as e:
         return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
@@ -324,6 +324,12 @@ async def get_current_user(Authorize: AuthJWT = Depends()):
     if not auth:
         return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
                             content={"detail": f"user not found user -- {Authorize.get_jwt_subject()} "})
+
+    auth["avatar_url"] = config.API_URL + auth["avatar_url"]
+    avatar_url = ""
+    num = 0
+    if str(auth["avatar_url"]).count("//") > 1:
+        auth["avatar_url"] = ""
 
     auth["id"] = str(auth["_id"])
 

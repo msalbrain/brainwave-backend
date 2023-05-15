@@ -6,6 +6,7 @@ from http import HTTPStatus
 from typing import Any, Optional, Union
 from pydantic import HttpUrl, EmailStr
 
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Request, File, \
     Body, BackgroundTasks, Query, Header
 from fastapi.logger import logger
@@ -255,7 +256,7 @@ async def add_avatar(
 
 
 @auth.put("/update", response_model=SignupReturn,
-          responses={401: {"model": AuthError}, 409: {"model": AuthError}})
+          responses={401: {"model": AuthError}, 409: {"model": AuthError, "description": "mistake"}})
 async def update_user(
         user_data: Optional[UpdateBase] = Body(title="user update"),
         Authorize: AuthJWT = Depends()

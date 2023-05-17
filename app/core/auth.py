@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import asyncio
 from uuid import uuid4
 
 from datetime import datetime, timedelta
@@ -381,7 +383,6 @@ async def forget_password(background_tasks: BackgroundTasks, username: EmailStr 
 
        """
 
-
     user = get_user_in_db({"username": username})
     if not user:
         raise HTTPException(status_code=404,
@@ -461,7 +462,7 @@ async def update_password(background_tasks: BackgroundTasks, update_info: Update
         u = get_user_by_id(check_cache["user_id"])
 
     message = MessageSchema(
-        subject="Successfully Updating Your Password!",
+        subject="Successfully Updated Your Password!",
         recipients=[u["username"]],
         template_body={
             "app_name": "brainwave",
@@ -657,4 +658,6 @@ async def user_list(
 
     return ret
 
+
 # ------------------------ END ADMIN ------------------------------
+

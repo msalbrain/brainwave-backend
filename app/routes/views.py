@@ -64,7 +64,8 @@ def cache_check():
                     "status": "online",
                 }
             }
-    except:
+    except Exception as e:
+        print(e)
         return {
             "cache": {
                 "status": "offline",

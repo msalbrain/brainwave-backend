@@ -44,3 +44,9 @@ MAIL_STARTTLS = config("MAIL_STARTTLS", bool)
 MAIL_SSL_TLS = config("MAIL_SSL_TLS", bool)
 USE_CREDENTIALS = config("USE_CREDENTIALS", bool)
 VALIDATE_CERTS = config("VALIDATE_CERTS", bool)
+
+
+# google auth config
+GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", str)
+GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", str)
+

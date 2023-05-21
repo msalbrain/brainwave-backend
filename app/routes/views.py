@@ -56,22 +56,21 @@ def database_check():
 
 
 def cache_check():
-    # try:
-    stat = r.client_info()
-    if stat:
+    try:
+        stat = r.ping()
+        if stat:
+            return {
+                "cache": {
+                    "status": "online",
+                }
+        }
+    except Exception as e:
+        print(e)
         return {
             "cache": {
-                "status": "online",
+                "status": "offline",
             }
-    }
-    print(stat)
-    # except Exception as e:
-    #     print(e)
-    #     return {
-    #         "cache": {
-    #             "status": "offline",
-    #         }
-    #     }
+        }
 
 
     # if client.server_info().get("ok") != 1:

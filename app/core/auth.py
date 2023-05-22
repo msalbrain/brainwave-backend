@@ -138,6 +138,22 @@ async def create_new_user(
 
     user_obj = user.insert_one(d)
 
+    message = MessageSchema(
+        subject="Welcome to Brainwave - Confirm Your Email Address",
+        recipients=[d["username"]],
+        template_body={
+            "app_name": "brainwave",
+            "title": "New user",
+            "firstname": d["firstname"],
+            "support_email": "brainwave@mail.com",
+            "link": "https://brainwave-five.vercel.app"
+        }, subtype=MessageType.html)
+    fm = FastMail(conf)
+
+    # await fm.send_message(message)
+    background_tasks.add_task(fm.send_message, message, template_name="new_user.html")
+
+
     return {"status": 200, "message": "successfully created user", "error": ""}
 
 
@@ -451,6 +467,14 @@ async def send_password_change_token(background_tasks: BackgroundTasks, Authoriz
                                                                        401: {"model": AuthError}
                                                                        })
 async def update_password(background_tasks: BackgroundTasks, update_info: UpdatePassword = Body(...)):
+    """
+    This API endpoint allows users to update their password. The endpoint requires authentication and accepts a POST request.
+
+    - **token**: `required` The authentication token for the user.
+    - **new_password**: `required` The new password to be set.
+
+    """
+
     check_cache = db_helper.get_from_cache(update_info.token)
 
     if not check_cache:
@@ -476,6 +500,20 @@ async def update_password(background_tasks: BackgroundTasks, update_info: Update
     background_tasks.add_task(fm.send_message, message, template_name="success-password-change.html")
 
     return {"status": 200, "message": "successfully updated password", "error": ""}
+
+
+@auth.post("/complete-verification", response_model=SignupReturn, responses={409: {"model": AuthError},
+                                                                       401: {"model": AuthError}
+                                                                       })
+async def complete_verification(background_tasks: BackgroundTasks, verify_token: str = Query(...)):
+    pass
+
+
+
+
+
+
+
 
 
 # ------------------------ ADMIN ------------------------------

@@ -50,3 +50,5 @@ VALIDATE_CERTS = config("VALIDATE_CERTS", bool)
 GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", str)
 GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", str)
 
+# stripe config
+STRIPE_API_KEY = config("STRIPE_API_KEY", str)

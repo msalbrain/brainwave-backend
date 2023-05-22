@@ -155,4 +155,9 @@ class UpdatePassword(BaseModel):
     new_password: str
     token: str
 
+class CreateCheckoutSession(BaseModel):
+    lookup_key: str
+
+
+
 

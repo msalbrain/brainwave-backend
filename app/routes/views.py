@@ -146,7 +146,7 @@ def create_payment(
     }
 
 
-@payment.post("/stripe-event")
+@payment.post("/stripe-event", include_in_schema=False)
 async def stripe_event(
         item: Any,
         request: Request,
@@ -234,7 +234,7 @@ async def customer_portal(data: CreateCheckoutSession, Authorize: AuthJWT = Depe
     return RedirectResponse(portalSession.url, status_code=303)
 
 
-@payment.post('/webhook')
+@payment.post('/webhook', include_in_schema=False)
 async def webhook_received(request: Request):
     webhook_secret = 'whsec_12345'
     request_data = request.json()

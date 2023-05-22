@@ -506,6 +506,15 @@ async def update_password(background_tasks: BackgroundTasks, update_info: Update
                                                                        401: {"model": AuthError}
                                                                        })
 async def complete_verification(background_tasks: BackgroundTasks, verify_token: str = Query(...)):
+    """
+    This API endpoint is used to complete the verification process for a user.
+
+    It expects the following parameter:
+
+    - **verify_token**: `required` A string parameter representing the verification token associated with the user.
+
+    """
+
     pass
 
 

@@ -16,12 +16,13 @@ from app.core import config
 from app.database.db import client
 from app.database.cache import r
 from app.database.helpers import get_user_in_db
+from app.utils import get_unix_time
 
 from typing import Any
 
 stripe.api_key = 'sk_test_51N4V4PG5WGB1ayF3LEVhX9LKhZXagEfS3TTLb5YCquyuhkrvOxXYa9fAR8xbwK9p8lLwHhct8LuWaNyB8PQkUwre00drxEvUiX'
 
-router = APIRouter(tags=["General Routes"])
+router = APIRouter(tags=["Welcome ✋"])
 
 
 @router.get("/", responses={200: {"model": IndexReturn}})
@@ -89,8 +90,21 @@ def cache_check():
     #         }
     #     }
 
+def more_check():
+    """
+    "uptime": The duration or timestamp indicating how long the API has been running without restarting.
+"version": The version number or identifier of the API.
+"dependencies": Information about any external services or dependencies the API relies on and their health status.
+"timestamp": The
+    """
 
-router.add_api_route("/health", health([database_check, cache_check]), summary="Health")
+    return {
+        "timestamp": get_unix_time(),
+        "version": "v1",
+        "uptime": get_unix_time() - 89000
+    }
+
+router.add_api_route("/health", health([database_check, cache_check, more_check]), summary="Health")
 
 cdn = APIRouter(tags=["Micro CDN"])
 

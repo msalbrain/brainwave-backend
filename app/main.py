@@ -37,8 +37,8 @@ def index():
 
 v1 = APIRouter(prefix="/v1")
 
-v1.include_router(auth.auth)
 v1.include_router(views.router)
+v1.include_router(auth.auth)
 v1.include_router(views.payment)
 v1.include_router(views.analytics)
 

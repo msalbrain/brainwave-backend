@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import RedirectResponse
 from fastapi_health import health
 from http import HTTPStatus
@@ -90,7 +90,7 @@ def cache_check():
     #     }
 
 
-router.add_api_route("/health", health([database_check, cache_check]))
+router.add_api_route("/health", health([database_check, cache_check]), summary="Health")
 
 cdn = APIRouter(tags=["Micro CDN"])
 
@@ -105,7 +105,7 @@ async def ret_images(image: str):
         return FileResponse(f"static/image/{image}")
 
 
-payment = APIRouter(tags=["PAYMENT"])
+payment = APIRouter(tags=["Payment"])
 
 
 class Item(BaseModel):
@@ -189,7 +189,7 @@ async def stripe_event(
 
 
 @payment.post("/create-checkout-session")
-async def create_checkout_session(data: CreateCheckoutSession):
+async def create_checkout_session(data: CreateCheckoutSession, Authorize: AuthJWT = Depends()):
     prices = stripe.Price.list(
         lookup_keys=[data.lookup_key],
         expand=['data.product']
@@ -272,3 +272,45 @@ async def webhook_received(request: Request):
         print('Subscription canceled: %s', event.id)
 
     return {'status': 'success'}
+
+
+analytics = APIRouter(tags=["Analytics"])
+
+
+@analytics.get('/analytics/user')
+async def analytics_by_user_id(data: CreateCheckoutSession, Authorize: AuthJWT = Depends(), user_id: str = Query(...)):
+    """
+    This endpoint retrieves the analytics data for a specific user identified by user_id.
+    The response may include information such as user engagement, activity history, preferences, and other relevant metrics.
+    """
+    pass
+
+
+@analytics.get('/analytics/conversion-rates')
+async def conversion_rates(data: CreateCheckoutSession, Authorize: AuthJWT = Depends()):
+    """
+    This endpoint retrieves the conversion rates for specific actions or events, such as sign-ups and subscriptions.
+     It helps analyze the effectiveness of conversion funnels and identify areas for improvement.
+    """
+    pass
+
+
+
+@analytics.get('/analytics/user-retention')
+async def user_retention(data: CreateCheckoutSession, Authorize: AuthJWT = Depends()):
+    """
+    This endpoint provides information about user retention rates over time.
+    It allows tracking the percentage of users who continue to engage with the application after a specific period, helping measure user loyalty and satisfaction.
+    """
+    pass
+
+
+@analytics.get('/analytics/geographic-insights')
+async def geographic_insights(data: CreateCheckoutSession, Authorize: AuthJWT = Depends()):
+    """
+    This endpoint provides geographic insights about user distribution, allowing analysis of user engagement and preferences based on geographical location.
+    It helps tailor content, marketing strategies, or localization efforts.
+    """
+    pass
+
+

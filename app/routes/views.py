@@ -225,7 +225,7 @@ async def create_checkout_session(data: CreateCheckoutSession, Authorize: AuthJW
 
 
 @payment.post('/create-portal-session')
-async def customer_portal(data: CreateCheckoutSession, Authorize: AuthJWT = Depends()):
+async def customer_portal(Authorize: AuthJWT = Depends()):
     Authorize.jwt_required()
 
     auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
@@ -292,8 +292,9 @@ analytics = APIRouter(tags=["Analytics"])
 
 
 @analytics.get('/analytics/user')
-async def analytics_by_user_id(data: CreateCheckoutSession, Authorize: AuthJWT = Depends(), user_id: str = Query(...)):
+async def analytics_by_user_id(Authorize: AuthJWT = Depends(), user_id: str = Query(...)):
     """
+    `PENDING`
     This endpoint retrieves the analytics data for a specific user identified by user_id.
     The response may include information such as user engagement, activity history, preferences, and other relevant metrics.
     """
@@ -301,8 +302,9 @@ async def analytics_by_user_id(data: CreateCheckoutSession, Authorize: AuthJWT =
 
 
 @analytics.get('/analytics/conversion-rates')
-async def conversion_rates(data: CreateCheckoutSession, Authorize: AuthJWT = Depends()):
+async def conversion_rates(Authorize: AuthJWT = Depends()):
     """
+    `PENDING`
     This endpoint retrieves the conversion rates for specific actions or events, such as sign-ups and subscriptions.
      It helps analyze the effectiveness of conversion funnels and identify areas for improvement.
     """
@@ -311,8 +313,9 @@ async def conversion_rates(data: CreateCheckoutSession, Authorize: AuthJWT = Dep
 
 
 @analytics.get('/analytics/user-retention')
-async def user_retention(data: CreateCheckoutSession, Authorize: AuthJWT = Depends()):
+async def user_retention(Authorize: AuthJWT = Depends()):
     """
+    `PENDING`
     This endpoint provides information about user retention rates over time.
     It allows tracking the percentage of users who continue to engage with the application after a specific period, helping measure user loyalty and satisfaction.
     """
@@ -320,8 +323,9 @@ async def user_retention(data: CreateCheckoutSession, Authorize: AuthJWT = Depen
 
 
 @analytics.get('/analytics/geographic-insights')
-async def geographic_insights(data: CreateCheckoutSession, Authorize: AuthJWT = Depends()):
+async def geographic_insights(Authorize: AuthJWT = Depends()):
     """
+    `PENDING`
     This endpoint provides geographic insights about user distribution, allowing analysis of user engagement and preferences based on geographical location.
     It helps tailor content, marketing strategies, or localization efforts.
     """

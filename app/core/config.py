@@ -8,7 +8,7 @@ BASE_DIR = ROOT.parent  # ./
 config = Config(BASE_DIR / ".env")
 
 API_URL = config("API_URL", str)
-
+APP_URL = config("APP_URL", str)
 API_USERNAME = config("API_USERNAME", str)
 API_PASSWORD = config("API_PASSWORD", str)
 
@@ -32,7 +32,6 @@ MONGODB_DBNAME = config("MONGODB_DBNAME", str)
 REDIS_HOST = config("REDIS_HOST", str)
 REDIS_PORT = config("REDIS_PORT", str)
 
-
 # Mail config
 MAIL_USERNAME = config("MAIL_USERNAME", str)
 MAIL_PASSWORD = config("MAIL_PASSWORD", str)
@@ -45,10 +44,10 @@ MAIL_SSL_TLS = config("MAIL_SSL_TLS", bool)
 USE_CREDENTIALS = config("USE_CREDENTIALS", bool)
 VALIDATE_CERTS = config("VALIDATE_CERTS", bool)
 
-
 # google auth config
 GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", str)
 GOOGLE_CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", str)
 
 # stripe config
 STRIPE_API_KEY = config("STRIPE_API_KEY", str)
+STRIPE_WEBHOOK_KEY = config("STRIPE_WEBHOOK_KEY", str)

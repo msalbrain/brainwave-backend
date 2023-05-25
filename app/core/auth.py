@@ -12,9 +12,9 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, Request, File
     Body, BackgroundTasks, Query, Header
 from fastapi.logger import logger
 from fastapi.responses import JSONResponse
-from fastapi_jwt_auth import AuthJWT
+# from fastapi_jwt_auth import AuthJWT
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
-from fastapi_jwt_auth.exceptions import AuthJWTException
+# from fastapi_jwt_auth.exceptions import AuthJWTException
 
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
@@ -22,32 +22,30 @@ from pydantic import BaseModel
 
 from app.core import config
 from app.database import helpers as db_helper, db, cache
-
+from app.database.db import referral_col, user_col, customer_col
 from app.utils import get_random_string, get_unix_time
 from .schema import Token, TokenData, AdminUpgrade, AdminDowngrade, \
     UpdateBase, SignupReturn, SignupUser, AdminBlock, AuthError, \
     CurrentUser, RefToken, AdminUserList, LoginUser, \
     UpdatePassword, ForgetPasswordRequest
-
 from app.core.utils import get_password_hash, get_user_by_id, get_current_user, \
     get_user_in_db, authenticate_user, confirm_admin_body_legit, validate_ref, generate_password_change_object
-
 from app.mail import conf
+from app.core.dependency import stripe, AuthJWT
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
+# class AuthSettings(BaseModel):
+#     authjwt_secret_key: str = config.API_SECRET_KEY
+# Configure application to store and get JWT from cookies
+# authjwt_token_location: set = {"cookies"}
+# Disable CSRF Protection for this example. default is True
+# authjwt_cookie_csrf_protect: bool = False
 
-class AuthSettings(BaseModel):
-    authjwt_secret_key: str = config.API_SECRET_KEY
-    # Configure application to store and get JWT from cookies
-    # authjwt_token_location: set = {"cookies"}
-    # Disable CSRF Protection for this example. default is True
-    # authjwt_cookie_csrf_protect: bool = False
 
-
-@AuthJWT.load_config
-def get_config():
-    return AuthSettings()
+# @AuthJWT.load_config
+# def get_config():
+#     return AuthSettings()
 
 
 auth = APIRouter(prefix="/user", tags=["Authentication"])
@@ -55,8 +53,7 @@ auth = APIRouter(prefix="/user", tags=["Authentication"])
 
 @auth.post("/signup", response_model=SignupReturn, responses={409: {"model": AuthError}})
 async def create_new_user(
-        background_tasks: BackgroundTasks,
-        request: Request, user_data: SignupUser = Body(...)
+        background_tasks: BackgroundTasks, user_data: SignupUser = Body(...)
 ) -> dict[str, Any]:
     """
        Create a new user. This is one of the ways of initializing a new user into
@@ -85,7 +82,8 @@ async def create_new_user(
             detail="user already exist",
         )
 
-    ref = validate_ref(user_data)
+    new_user_id = str(uuid4()).replace('-', '')  # generate id for new user
+    ref = validate_ref(user_data, new_user_id)
 
     user = db.db["user"]
     dp_image = ""
@@ -98,27 +96,29 @@ async def create_new_user(
     t = get_unix_time()
 
     d = {
-        "_id": ref["data"]["assign_id"],
+        "_id": new_user_id,
         "firstname": user_data.firstname,
         "lastname": user_data.lastname,
         "username": user_data.username,
         "bio": user_data.bio,
         "location": user_data.location,
         "avatar_url": dp_image,
+        "customer_id": "",
         "referral_code": str(uuid4()).replace('-', ''),
         "list_of_referral": [],
         "list_of_verified_referral": [],
         "password": get_password_hash(user_data.password),
         "password_changed": {  # TODO: work the change password logic and update its object
-            "date": t,
+            "last_date": t,
             "token": ""
         },
         "country": user_data.country,
         "google_id": "",
         "disabled": False,
+        "verified": False,
         "super_admin": False,
         "sub_admin": False,
-        "subcribed": False,
+        "subscribed": False,
         "updated": t,
         "created": t,
         "settings": {
@@ -146,13 +146,12 @@ async def create_new_user(
             "title": "New user",
             "firstname": d["firstname"],
             "support_email": "brainwave@mail.com",
-            "link": "https://brainwave-five.vercel.app"
+            "link": f"https://brainwave-five.vercel.app?sup={new_user_id}"
         }, subtype=MessageType.html)
     fm = FastMail(conf)
 
     # await fm.send_message(message)
     background_tasks.add_task(fm.send_message, message, template_name="new_user.html")
-
 
     return {"status": 200, "message": "successfully created user", "error": ""}
 
@@ -343,12 +342,11 @@ async def get_current_user(Authorize: AuthJWT = Depends()):
         return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
                             content={"detail": f"user not found user -- {Authorize.get_jwt_subject()} "})
 
-    auth["avatar_url"] = config.API_URL + auth["avatar_url"]
-    avatar_url = ""
-    num = 0
-    # if str(auth["avatar_url"]).count("//") > 1:
-    #     auth["avatar_url"] = ""
-    #
+    if str(auth["avatar_url"]).startswith("http"):
+        pass
+    else:
+        auth["avatar_url"] = config.API_URL + auth["avatar_url"]
+
     auth["id"] = str(auth["_id"])
 
     return auth
@@ -502,10 +500,10 @@ async def update_password(background_tasks: BackgroundTasks, update_info: Update
     return {"status": 200, "message": "successfully updated password", "error": ""}
 
 
-@auth.post("/complete-verification", response_model=SignupReturn, responses={409: {"model": AuthError},
-                                                                       401: {"model": AuthError}
-                                                                       })
-async def complete_verification(background_tasks: BackgroundTasks, verify_token: str = Query(...)):
+@auth.post("/complete-verification", responses={409: {"model": AuthError},
+                                                401: {"model": AuthError}
+                                                })
+async def complete_verification(background_tasks: BackgroundTasks, sup: str = Query(...)):
     """
     This API endpoint is used to complete the verification process for a user.
 
@@ -515,14 +513,37 @@ async def complete_verification(background_tasks: BackgroundTasks, verify_token:
 
     """
 
-    pass
+    u = get_user_by_id(sup)
+    if not u:
+        raise HTTPException(status_code=401, detail="invalid status code")
+
+    if u["verified"]:
+        return JSONResponse(
+            {
+                "status": 200,
+                "message": "successfully verified",
+                "error": ""
+            }
+        )
+
+    upt = db_helper.update_user({"_id": u["_id"]}, {"verified": True})
+
+    cus = stripe.Customer.create(
+        description=u["bio"],
+    )
+
+    c = customer_col.insert_one({
+        "_id": u["_id"],
+        "email": u["username"],
+        "customer_id": cus["id"]
+    })
 
 
-
-
-
-
-
+    return {
+        "status": 200,
+        "message": "successfully verified",
+        "customer": cus
+    }
 
 
 # ------------------------ ADMIN ------------------------------
@@ -705,6 +726,4 @@ async def user_list(
 
     return ret
 
-
 # ------------------------ END ADMIN ------------------------------
-

@@ -19,6 +19,7 @@ from app.utils import get_unix_time
 from .schema import TokenData, SignupUser
 from app.database.helpers import get_user_in_db, update_user
 from app.database import helpers as db_helper
+from app.database.db import referral_col, user_col
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
@@ -136,38 +137,38 @@ def confirm_admin_body_legit(user_id, username):
     return q
 
 
-def validate_ref(user_data: SignupUser):
+def validate_ref(user_data: SignupUser, new_user_id: str):
     """
     This function helps with the validation of referral token
     And update referral user object
+
     """
     print(user_data)
-    new_user_id = str(uuid4()).replace('-', '')  # generate id for new user
+
     _id = str(uuid4()).replace('-', '')  # generate id for refferal
 
     u = get_user_in_db({"referral_code": user_data.referrer_id})
     if not u:
-
         return {"verify": False, "data": {"assign_id": new_user_id, }}
 
     elif u["username"] == user_data.username:
         raise HTTPException(status_code=409,
                             detail=f"referral code provide belongs to username `{user_data.username}` provided.")
 
-
-
     ref_obj = {
         "_id": _id,
-        "active": False,
         "referral_user_id": str(u["_id"]),
         "referred_user_id": new_user_id,
-        "referral_code": user_data.referrer_id
+        "referral_code": user_data.referrer_id,
+        "created": get_unix_time()
     }
+
+    referral_col.insert_one(ref_obj)  # added new referral obj
 
     u["list_of_referral"].append(new_user_id)  # added new user_id to referral user object
     u["list_of_referral"] = list(set(u["list_of_referral"]))  # reduce redundancy
 
-    update_user({"username": u["username"]}, {"list_of_referral": u["list_of_referral"]}) # update referral user
+    update_user({"username": u["username"]}, {"list_of_referral": u["list_of_referral"]})  # update referral user
     # object in db
 
     return {"verify": False, "data": {"assign_id": new_user_id}}
@@ -184,7 +185,6 @@ def generate_password_change_object(user_id):
         "user_id": user_id
     }
 
-    db_helper.add_to_cache(d,exp=10, key=tok)
+    db_helper.add_to_cache(d, exp=10, key=tok)
 
     return d
-

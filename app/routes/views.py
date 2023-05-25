@@ -7,7 +7,7 @@ from http import HTTPStatus
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi_jwt_auth import AuthJWT
 from pydantic import BaseModel
-import stripe
+
 
 from app.apis.api_a.mainmod import main_func as main_func_a
 from app.core.auth import get_current_user
@@ -17,10 +17,11 @@ from app.database.db import client
 from app.database.cache import r
 from app.database.helpers import get_user_in_db
 from app.utils import get_unix_time
+from app.core.dependency import stripe
+
 
 from typing import Any
 
-stripe.api_key = 'sk_test_51N4V4PG5WGB1ayF3LEVhX9LKhZXagEfS3TTLb5YCquyuhkrvOxXYa9fAR8xbwK9p8lLwHhct8LuWaNyB8PQkUwre00drxEvUiX'
 
 router = APIRouter(tags=["Welcome ✋"])
 
@@ -90,6 +91,7 @@ def cache_check():
     #         }
     #     }
 
+
 def more_check():
     """
     "uptime": The duration or timestamp indicating how long the API has been running without restarting.
@@ -101,8 +103,9 @@ def more_check():
     return {
         "timestamp": get_unix_time(),
         "version": "v1",
-        "uptime": get_unix_time() - 89000
+        "uptime": get_unix_time() - 89000 - 89000
     }
+
 
 router.add_api_route("/health", health([database_check, cache_check, more_check]), summary="Health")
 
@@ -127,80 +130,37 @@ class Item(BaseModel):
     payment_plan: str  # `pro` or `enterprise`
 
 
-def calculate_order_amount(item: Item):
-    p = {}
-    if item.type == "year" and item.payment_plan == "pro":
-        p["price"] = 999
-    elif item.type == "year" and item.payment_plan == "enterprise":
-        p["price"] = 2399
-    elif item.type == "month" and item.payment_plan == "pro":
-        p["price"] = 89
-    elif item.type == "month" and item.payment_plan == "enterprise":
-        p["price"] = 399
-    else:
-        raise HTTPException(status_code=400, detail="invalid payment plan or type")
-
-    return p
-
-
-@payment.post("/create-payment-intent")
-def create_payment(
-        item: Item,
-        auth: Depends = Depends(get_current_user)):
-    intent = stripe.PaymentIntent.create(
-        amount=calculate_order_amount(item),
-        currency='usd',
-        automatic_payment_methods={
-            'enabled': True,
-        },
-    )
-
-    return {
-        'clientSecret': intent['client_secret']
-    }
+# def calculate_order_amount(item: Item):
+#     p = {}
+#     if item.type == "year" and item.payment_plan == "pro":
+#         p["price"] = 999
+#     elif item.type == "year" and item.payment_plan == "enterprise":
+#         p["price"] = 2399
+#     elif item.type == "month" and item.payment_plan == "pro":
+#         p["price"] = 89
+#     elif item.type == "month" and item.payment_plan == "enterprise":
+#         p["price"] = 399
+#     else:
+#         raise HTTPException(status_code=400, detail="invalid payment plan or type")
+#
+#     return p
 
 
-@payment.post("/stripe-event", include_in_schema=False)
-async def stripe_event(
-        item: Any,
-        request: Request,
-        auth: Depends = Depends(get_current_user)):
-    event = None
-    try:
-        payload = await request.json()
-    except:
-        HTTPException(status_code=400, detail="issues receiving webhook event")
-
-    endpoint_secret = "vftyujnbvftyuj"
-
-    if endpoint_secret:
-        # Only verify the event if there is an endpoint secret defined
-        # Otherwise use the basic event deserialized with json
-        sig_header = request.headers.get('stripe-signature')
-        # try:
-        # event = stripe.Webhook.construct_event(
-        #     payload, sig_header, endpoint_secret
-        # )
-        # except stripe.error.SignatureVerificationError as e:
-        #     print('⚠️  Webhook signature verification failed.' + str(e))
-        #     return jsonify(success=False)
-
-    # Handle the event
-    if event and event['type'] == 'payment_intent.succeeded':
-        payment_intent = event['data']['object']  # contains a stripe.PaymentIntent
-        print('Payment for {} succeeded'.format(payment_intent['amount']))
-        # Then define and call a method to handle the successful payment intent.
-        # handle_payment_intent_succeeded(payment_intent)
-    elif event['type'] == 'payment_method.attached':
-        payment_method = event['data']['object']  # contains a stripe.PaymentMethod
-        # Then define and call a method to handle the successful attachment of a PaymentMethod.
-        # handle_payment_method_attached(payment_method)
-    else:
-        # Unexpected event type
-        print('Unhandled event type {}'.format(event['type']))
-
-    return {"success": False}
-
+# @payment.post("/create-payment-intent")
+# def create_payment(
+#         item: Item,
+#         auth: Depends = Depends(get_current_user)):
+#     intent = stripe.PaymentIntent.create(
+#         amount=calculate_order_amount(item),
+#         currency='usd',
+#         automatic_payment_methods={
+#             'enabled': True,
+#         },
+#     )
+#
+#     return {
+#         'clientSecret': intent['client_secret']
+#     }
 
 @payment.post("/create-checkout-session")
 async def create_checkout_session(data: CreateCheckoutSession, Authorize: AuthJWT = Depends()):
@@ -218,10 +178,12 @@ async def create_checkout_session(data: CreateCheckoutSession, Authorize: AuthJW
         ],
         mode='subscription',
         success_url=config.API_URL +
-                    '?success=true&session_id={CHECKOUT_SESSION_ID}',
+                    '?success=true',
         cancel_url=config.API_URL + '?canceled=true',
     )
-    return RedirectResponse(checkout_session.url)
+
+    return {"status": 200, "redirect_url": checkout_session.url}
+    # return RedirectResponse(checkout_session.url)
 
 
 @payment.post('/create-portal-session')
@@ -234,14 +196,14 @@ async def customer_portal(Authorize: AuthJWT = Depends()):
         return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
                             content={"detail": f"user not found"})
 
-    checkout_session = stripe.checkout.Session.retrieve(auth["_id"])
+    cus = stripe.Customer.retrieve("")
 
     # This is the URL to which the customer will be redirected after they are
     # done managing their billing with the portal.
     return_url = config.API_URL
 
     portalSession = stripe.billing_portal.Session.create(
-        customer=checkout_session.customer,
+        customer=cus,
         return_url=return_url,
     )
 
@@ -250,10 +212,10 @@ async def customer_portal(Authorize: AuthJWT = Depends()):
 
 @payment.post('/webhook', include_in_schema=False)
 async def webhook_received(request: Request):
-    webhook_secret = 'whsec_12345'
-    request_data = request.json()
+    webhook_secret = config.STRIPE_WEBHOOK_KEY
+    request_data = await request.json()
 
-    event: Any = object()
+    event: Any = object
 
     if webhook_secret:
         # Retrieve the event by verifying the signature using the raw body and secret if webhook signing is configured.
@@ -261,16 +223,15 @@ async def webhook_received(request: Request):
 
         try:
             event = stripe.Webhook.construct_event(
-                payload=request.json(), sig_header=signature, secret=webhook_secret)
+                payload=request_data, sig_header=signature, secret=webhook_secret)
             data = event['data']
         except Exception as e:
             return e
         # Get the type of webhook event sent - used to check the status of PaymentIntents.
         event_type = event['type']
     else:
-        data = request.json()
-        event_type = request.json()
-    data_object = data['object']
+        data = request_data
+        event_type = request_data
 
     print('event ' + event_type)
 
@@ -311,7 +272,6 @@ async def conversion_rates(Authorize: AuthJWT = Depends()):
     pass
 
 
-
 @analytics.get('/analytics/user-retention')
 async def user_retention(Authorize: AuthJWT = Depends()):
     """
@@ -330,5 +290,3 @@ async def geographic_insights(Authorize: AuthJWT = Depends()):
     It helps tailor content, marketing strategies, or localization efforts.
     """
     pass
-
-

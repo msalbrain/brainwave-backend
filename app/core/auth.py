@@ -392,10 +392,10 @@ async def delete_user(Authorize: AuthJWT = Depends()):
 @auth.post("/forget-password", response_model=SignupReturn, responses={409: {"model": AuthError}})
 async def forget_password(background_tasks: BackgroundTasks, username: EmailStr = Query(...)):
     """
-        forget password flow. This route accepts an email in the username field and sends a forget password
+        forget password flow. This route accepts an email in the username field and sends a forgot password
         email to it.
 
-       """
+    """
 
     user = get_user_in_db({"username": username})
     if not user:
@@ -404,7 +404,7 @@ async def forget_password(background_tasks: BackgroundTasks, username: EmailStr 
 
     g = generate_password_change_object(user["_id"])
 
-    link = "https://brainwave-five.vercel.app"
+    link = config.APP_URL
 
     message = MessageSchema(
         subject="Reset Your Password - Action Required",
@@ -509,7 +509,7 @@ async def complete_verification(background_tasks: BackgroundTasks, sup: str = Qu
 
     It expects the following parameter:
 
-    - **verify_token**: `required` A string parameter representing the verification token associated with the user.
+    - **sup**: `required` A string parameter representing the verification token associated with the user.
 
     """
 
@@ -526,18 +526,28 @@ async def complete_verification(background_tasks: BackgroundTasks, sup: str = Qu
             }
         )
 
-    upt = db_helper.update_user({"_id": u["_id"]}, {"verified": True})
-
     cus = stripe.Customer.create(
         description=u["bio"],
     )
 
-    c = customer_col.insert_one({
-        "_id": u["_id"],
-        "email": u["username"],
-        "customer_id": cus["id"]
-    })
+    upt = db_helper.update_user({"_id": u["_id"]}, {"verified": True, "customer_id": cus["id"]})
 
+    # TODO: SEND CONGRATULATION ON ACCOUNT VERIFICATION
+
+
+    message = MessageSchema(
+        subject="Congratulations! Your User Verification is Complete!",
+        recipients=[u["username"]],
+        template_body={
+            "app_name": "brainwave",
+            "title": "Verification is Complete!",
+            "firstname": u["firstname"],
+            "support_email": "brainwave@mail.com",
+        }, subtype=MessageType.html)
+    fm = FastMail(conf)
+
+    # await fm.send_message(message)
+    background_tasks.add_task(fm.send_message, message, template_name="complete-verification.html")
 
     return {
         "status": 200,

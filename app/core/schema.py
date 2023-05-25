@@ -1,9 +1,8 @@
 from typing import Any, Optional, Union, List
-
 from pydantic import BaseModel, HttpUrl, EmailStr
-
 from fastapi import UploadFile
 
+from app.core import config
 
 class IndexReturn(BaseModel):
     info: str
@@ -158,6 +157,8 @@ class UpdatePassword(BaseModel):
 class CreateCheckoutSession(BaseModel):
     lookup_key: str
 
+class CustomerPortal(BaseModel):
+    return_url: Optional[HttpUrl] = config.APP_URL
 
 
 

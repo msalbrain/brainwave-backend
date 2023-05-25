@@ -143,7 +143,6 @@ def validate_ref(user_data: SignupUser, new_user_id: str):
     And update referral user object
 
     """
-    print(user_data)
 
     _id = str(uuid4()).replace('-', '')  # generate id for refferal
 

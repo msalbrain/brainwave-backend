@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, Body
 from fastapi.responses import RedirectResponse
 from fastapi_health import health
 from http import HTTPStatus
@@ -8,10 +8,9 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi_jwt_auth import AuthJWT
 from pydantic import BaseModel
 
-
 from app.apis.api_a.mainmod import main_func as main_func_a
 from app.core.auth import get_current_user
-from app.core.schema import IndexReturn, CreateCheckoutSession, SignupReturn
+from app.core.schema import IndexReturn, CreateCheckoutSession, SignupReturn, CustomerPortal
 from app.core import config
 from app.database.db import client
 from app.database.cache import r
@@ -19,9 +18,7 @@ from app.database.helpers import get_user_in_db
 from app.utils import get_unix_time
 from app.core.dependency import stripe
 
-
 from typing import Any
-
 
 router = APIRouter(tags=["Welcome ✋"])
 
@@ -164,6 +161,21 @@ class Item(BaseModel):
 
 @payment.post("/create-checkout-session")
 async def create_checkout_session(data: CreateCheckoutSession, Authorize: AuthJWT = Depends()):
+    Authorize.jwt_required()
+
+    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
+
+    if not auth:
+        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
+                            content={"detail": f"user not found"})
+
+    if not auth["customer_id"]:
+        raise HTTPException(
+            status_code=401,
+            detail="Please complete the verification process to access this resource, check your email for "
+                   "verification link"
+        )
+
     prices = stripe.Price.list(
         lookup_keys=[data.lookup_key],
         expand=['data.product']
@@ -177,9 +189,9 @@ async def create_checkout_session(data: CreateCheckoutSession, Authorize: AuthJW
             },
         ],
         mode='subscription',
-        success_url=config.API_URL +
-                    '?success=true',
+        success_url=config.API_URL + '?success=true',
         cancel_url=config.API_URL + '?canceled=true',
+        customer=auth["customer_id"]
     )
 
     return {"status": 200, "redirect_url": checkout_session.url}
@@ -187,7 +199,7 @@ async def create_checkout_session(data: CreateCheckoutSession, Authorize: AuthJW
 
 
 @payment.post('/create-portal-session')
-async def customer_portal(Authorize: AuthJWT = Depends()):
+async def customer_portal(data: CustomerPortal, Authorize: AuthJWT = Depends()):
     Authorize.jwt_required()
 
     auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
@@ -196,18 +208,22 @@ async def customer_portal(Authorize: AuthJWT = Depends()):
         return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
                             content={"detail": f"user not found"})
 
-    cus = stripe.Customer.retrieve("")
+    if not auth["customer_id"]:
+        raise HTTPException(
+            status_code=401,
+            detail="Please complete the verification process, check your email for your"
+                   "verification link"
+        )
 
-    # This is the URL to which the customer will be redirected after they are
-    # done managing their billing with the portal.
-    return_url = config.API_URL
+    cus = stripe.Customer.retrieve(auth["customer_id"])
 
     portalSession = stripe.billing_portal.Session.create(
         customer=cus,
-        return_url=return_url,
+        return_url=data.return_url
     )
 
-    return RedirectResponse(portalSession.url, status_code=303)
+    return {"status": 200, "redirect_url": portalSession.url}
+    # return RedirectResponse(portalSession.url, status_code=303)
 
 
 @payment.post('/webhook', include_in_schema=False)

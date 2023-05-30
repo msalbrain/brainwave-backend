@@ -61,7 +61,22 @@ class Item(BaseModel):
 
 @payment.post("/create-checkout-session", response_model=CreateCheckoutSessionOut)
 async def create_checkout_session(data: CreateCheckoutSession, Authorize: AuthJWT = Depends()):
-
+    """
+    ## `AccessToken Required`
+    instructions for how flow works can be found here [Stripe quickstart](https://stripe.com/docs/billing/quickstart)
+    - **Differences**:
+         In place of a `form`, make an api request with the access token and a json object containing
+        ```
+        {lookup_key: "LOOKUP_KEY"}
+        ```
+        And you will receive a response of form
+        ```
+        {
+          status: 0,
+          redirect_url: "http://example.com"
+        }
+        ```
+    """
 
     Authorize.jwt_required()
 
@@ -102,6 +117,23 @@ async def create_checkout_session(data: CreateCheckoutSession, Authorize: AuthJW
 
 @payment.post('/create-portal-session', response_model=CustomerPortalOut)
 async def customer_portal(data: CustomerPortal, Authorize: AuthJWT = Depends()):
+    """
+    ## `AccessToken Required`
+    instructions for how flow works can be found here [Stripe quickstart](https://stripe.com/docs/billing/quickstart)
+    - **Differences**:
+         In place of a `form` and `session_id`, make an api request with the access token and a json object containing
+        ```
+        {return_url: "https://brainwave-five.vercel.app"}
+        ```
+        And you will receive a response of form
+        ```
+        {
+          status: 0,
+          redirect_url: "http://example.com"
+        }
+        ```
+    """
+
     Authorize.jwt_required()
 
     auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})

@@ -205,6 +205,7 @@ async def login_for_access_token(
 @auth.post('/refresh')
 def refresh(Authorize: AuthJWT = Depends()):
     """
+    ## `RefreshToken Required`
     This route is used to refresh the access token before or after the access token have expired.
     **Note:** it uses the refresh token i.e `Authorization: bearer <refresh_token>`
     """
@@ -222,6 +223,7 @@ def refresh(Authorize: AuthJWT = Depends()):
 @auth.delete('/logout')
 def logout(Authorize: AuthJWT = Depends()):
     """
+    ## `AccessToken Required`
     This route must be called inorder to logout a user from a frontend.
     Because the JWT are stored in an httponly cookie now, we cannot
     log the user out by simply deleting the cookies in the frontend.
@@ -240,6 +242,7 @@ async def add_avatar(
         Authorize: AuthJWT = Depends()
 ):
     """
+    ## `AccessToken Required`
         This route adds or update a user avatar by accepting a image file as long as the access token in
         its header.
 
@@ -280,6 +283,7 @@ async def update_user(
         Authorize: AuthJWT = Depends()
 ) -> dict[str, Any] | JSONResponse:
     """
+    ## `AccessToken Required`
         Update User is used to update a user. `access token needed`
 
         - **firstname**: `optional`
@@ -330,7 +334,8 @@ async def update_user(
 @auth.get("/current-user", response_model=CurrentUser)
 async def get_current_user(Authorize: AuthJWT = Depends()):
     """
-        Current User. `access token needed`
+    ## `AccessToken Required`
+        Current User.
 
        \f
        :param user_data: User input.
@@ -355,6 +360,7 @@ async def get_current_user(Authorize: AuthJWT = Depends()):
 @auth.get("/referral-code", responses={200: {"model": RefToken}, 401: {"model": AuthError}})
 async def get_referral_token(Authorize: AuthJWT = Depends()):
     """
+    ## `AccessToken Required`
         This returns the referral token of a user. `access token needed`
 
     """
@@ -371,6 +377,7 @@ async def get_referral_token(Authorize: AuthJWT = Depends()):
 @auth.delete("/delete", response_model=SignupReturn, responses={409: {"model": AuthError}})
 async def delete_user(Authorize: AuthJWT = Depends()):
     """
+    ## `AccessToken Required`
          Delete a user. This route deletes a user from the database
 
     """
@@ -392,7 +399,8 @@ async def delete_user(Authorize: AuthJWT = Depends()):
 @auth.post("/forget-password", response_model=SignupReturn, responses={409: {"model": AuthError}})
 async def forget_password(background_tasks: BackgroundTasks, username: EmailStr = Query(...)):
     """
-        forget password flow. This route accepts an email in the username field and sends a forgot password
+
+            forget password flow. This route accepts an email in the username field and sends a forgot password
         email to it.
 
     """
@@ -428,6 +436,7 @@ async def forget_password(background_tasks: BackgroundTasks, username: EmailStr 
 @auth.post("/send_password_change_token", response_model=SignupReturn, responses={409: {"model": AuthError}})
 async def send_password_change_token(background_tasks: BackgroundTasks, Authorize: AuthJWT = Depends()):
     """
+    ## `AccessToken Required`
             Just like to forget password flow, sends a forget password email to it. But `access token needed`
 
     """
@@ -564,6 +573,7 @@ async def upgrade_to_admin(
         Authorize: AuthJWT = Depends()
 ) -> dict[str, Any] | JSONResponse:
     """
+    ## `AccessToken Required`
     This route allows for the upgrade of user to a sub_admin. It accepts a json object containing
     either an `id` or  `username`. upgrade is allowed base on privilege level i.e
 
@@ -601,6 +611,7 @@ async def downgrade_from_admin(
         Authorize: AuthJWT = Depends()
 ) -> dict[str, Any] | JSONResponse:
     """
+    ## `AccessToken Required`
     This route allows for the downgrade of user from a sub_admin. It accepts a json object containing
     either an `id` or  `username`. downgrade is allowed base on privilege level i.e
 
@@ -640,6 +651,7 @@ async def block_user(
         Authorize: AuthJWT = Depends()
 ) -> dict[str, Any] | JSONResponse:
     """
+    ## `AccessToken Required`
     This route allows for the blockage of user. It accepts a json object containing
     either an `id` or  `username`. blocking is allowed base on privilege level i.e
     `
@@ -702,6 +714,11 @@ async def user_list(
         page: int = Query(gt=0),
         Authorize: AuthJWT = Depends()
 ) -> dict[str, Any] | JSONResponse:
+    """
+    ## `AccessToken Required`
+    This endpoint returns a list of users.
+
+    """
     Authorize.jwt_required()
 
     auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})

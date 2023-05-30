@@ -243,14 +243,14 @@ async def add_avatar(
 ):
     """
     ## `AccessToken Required`
-        This route adds or update a user avatar by accepting a image file as long as the access token in
-        its header.
+    This route adds or update a user avatar by accepting a image file as long as the access token in
+    its header.
 
-        - **avatar**: `required` this is a file.
+    - **avatar**: `required` this is a file.
 
-       \f
-       :param user_data: User input.
-       """
+   \f
+   :param user_data: User input.
+    """
 
     Authorize.jwt_required()
     try:
@@ -284,19 +284,19 @@ async def update_user(
 ) -> dict[str, Any] | JSONResponse:
     """
     ## `AccessToken Required`
-        Update User is used to update a user. `access token needed`
+    Update User is used to update a user. `access token needed`
 
-        - **firstname**: `optional`
-        - **lastname**: `optional`
-        - **country**: `optional`
-        - **location**: `optional` best in format of `city, state`
-        - **bio**: `optional`
-        - **avatar_url**: `optional`
+    - **firstname**: `optional`
+    - **lastname**: `optional`
+    - **country**: `optional`
+    - **location**: `optional` best in format of `city, state`
+    - **bio**: `optional`
+    - **avatar_url**: `optional`
 
 
-       \f
-       :param user_data: User input.
-       """
+   \f
+   :param user_data: User input.
+    """
 
     Authorize.jwt_required()
     auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
@@ -335,11 +335,11 @@ async def update_user(
 async def get_current_user(Authorize: AuthJWT = Depends()):
     """
     ## `AccessToken Required`
-        Current User.
+    Current User.
 
-       \f
-       :param user_data: User input.
-       """
+   \f
+   :param user_data: User input.
+    """
     Authorize.jwt_required()
     auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
 
@@ -361,7 +361,7 @@ async def get_current_user(Authorize: AuthJWT = Depends()):
 async def get_referral_token(Authorize: AuthJWT = Depends()):
     """
     ## `AccessToken Required`
-        This returns the referral token of a user. `access token needed`
+    This returns the referral token of a user. `access token needed`
 
     """
     Authorize.jwt_required()
@@ -378,7 +378,7 @@ async def get_referral_token(Authorize: AuthJWT = Depends()):
 async def delete_user(Authorize: AuthJWT = Depends()):
     """
     ## `AccessToken Required`
-         Delete a user. This route deletes a user from the database
+    Delete a user. This route deletes a user from the database
 
     """
 
@@ -399,10 +399,8 @@ async def delete_user(Authorize: AuthJWT = Depends()):
 @auth.post("/forget-password", response_model=SignupReturn, responses={409: {"model": AuthError}})
 async def forget_password(background_tasks: BackgroundTasks, username: EmailStr = Query(...)):
     """
-
-            forget password flow. This route accepts an email in the username field and sends a forgot password
-        email to it.
-
+    forget password flow. This route accepts an email in the username field and sends a forgot password
+    email to it.
     """
 
     user = get_user_in_db({"username": username})
@@ -437,7 +435,7 @@ async def forget_password(background_tasks: BackgroundTasks, username: EmailStr 
 async def send_password_change_token(background_tasks: BackgroundTasks, Authorize: AuthJWT = Depends()):
     """
     ## `AccessToken Required`
-            Just like to forget password flow, sends a forget password email to it. But `access token needed`
+    Just like to forget password flow, sends a forget password email to it. But `access token needed`
 
     """
 
@@ -542,7 +540,6 @@ async def complete_verification(background_tasks: BackgroundTasks, sup: str = Qu
     upt = db_helper.update_user({"_id": u["_id"]}, {"verified": True, "customer_id": cus["id"]})
 
     # TODO: SEND CONGRATULATION ON ACCOUNT VERIFICATION
-
 
     message = MessageSchema(
         subject="Congratulations! Your User Verification is Complete!",

@@ -636,7 +636,7 @@ async def downgrade_from_admin(
 
 @auth.post("/admin/block", response_model=SignupReturn)
 async def block_user(
-        data: AdminDowngrade,
+        data: AdminBlock,
         Authorize: AuthJWT = Depends()
 ) -> dict[str, Any] | JSONResponse:
     """

@@ -10,7 +10,7 @@ from fastapi_jwt_auth.exceptions import AuthJWTException
 from starlette.middleware.cors import CORSMiddleware
 
 from app.core import auth
-from app.routes import views
+from app.routes import views, analytics, payment
 
 DESCRIPTION = """
 ## Auth guidelines
@@ -39,8 +39,8 @@ v1 = APIRouter(prefix="/v1")
 
 v1.include_router(views.router)
 v1.include_router(auth.auth)
-v1.include_router(views.payment)
-v1.include_router(views.analytics)
+v1.include_router(payment.payment)
+v1.include_router(analytics.analytics)
 
 app.include_router(v1)
 app.include_router(views.cdn)

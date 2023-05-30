@@ -4,6 +4,7 @@ from fastapi import UploadFile
 
 from app.core import config
 
+
 class IndexReturn(BaseModel):
     info: str
 
@@ -40,11 +41,13 @@ class partialUser(User):
     image_left: int = 0
     referral_code: str
 
+
 class AdminUserList(BaseModel):
     users: List[partialUser] = []
     total: int = 0
     limit: int = 1
     page: int = 1
+
 
 class CurrentUser(User):
     id: str
@@ -60,8 +63,6 @@ class CurrentUser(User):
     list_of_verified_referral: Optional[list[str]]
     country: str
     settings: UserSetting
-
-
 
     class Config:
         schema_extra = {
@@ -108,7 +109,6 @@ class SignupUser(SignUpBase):
     google_id: Optional[str] = None
 
 
-
 class LoginUser(BaseModel):
     username: str
     password: str
@@ -138,7 +138,6 @@ class Token(BaseModel):
     user: CurrentUser
 
 
-
 class TokenData(BaseModel):
     username: Optional[str] = None
 
@@ -150,15 +149,24 @@ class AuthError(BaseModel):
 class ForgetPasswordRequest(BaseModel):
     username: EmailStr
 
+
 class UpdatePassword(BaseModel):
     new_password: str
     token: str
 
+
 class CreateCheckoutSession(BaseModel):
     lookup_key: str
+
+
+class CreateCheckoutSessionOut(BaseModel):
+    status: int
+    redirect_url: HttpUrl
+
 
 class CustomerPortal(BaseModel):
     return_url: Optional[HttpUrl] = config.APP_URL
 
 
-
+class CustomerPortalOut(CreateCheckoutSessionOut):
+    pass

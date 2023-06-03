@@ -166,7 +166,7 @@ async def google_signup(
         This endpoint enables google signup/login. After acquiring the access token from google on the 
         frontend 
 
-        - **tokwn**: `required` The access token gotten from google.
+        - **token**: `required` The access token gotten from google.
         - **referrer_id**: `optional` this field is the id of the referral. It is optional.
 
     """
@@ -181,7 +181,7 @@ async def google_signup(
     user_exist = get_user_in_db({"_id": idinfo['sub'], "username": idinfo['email']})
 
     if user_exist:
-        # got lazy i.e i wasn't DRY
+        # got lazy i.e I wasn't DRY
         access_token = Authorize.create_access_token(subject=idinfo['email'],
                                                      expires_time=config.API_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
                                                      algorithm=config.API_ALGORITHM,

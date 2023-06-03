@@ -9,16 +9,17 @@ from typing import Any, Optional, Union
 from pydantic import HttpUrl, EmailStr, ValidationError
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Request, File, \
-    Body, BackgroundTasks, Query, Header
+    Body, BackgroundTasks, Query, Header, status
 from fastapi.logger import logger
 from fastapi.responses import JSONResponse
 # from fastapi_jwt_auth import AuthJWT
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 # from fastapi_jwt_auth.exceptions import AuthJWTException
-
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 from app.core import config
 from app.database import helpers as db_helper, db, cache
@@ -27,9 +28,10 @@ from app.utils import get_random_string, get_unix_time
 from .schema import Token, TokenData, AdminUpgrade, AdminDowngrade, \
     UpdateBase, SignupReturn, SignupUser, AdminBlock, AuthError, \
     CurrentUser, RefToken, AdminUserList, LoginUser, \
-    UpdatePassword, ForgetPasswordRequest
+    UpdatePassword, GoogleToken
 from app.core.utils import get_password_hash, get_user_by_id, get_current_user, \
-    get_user_in_db, authenticate_user, confirm_admin_body_legit, validate_ref, generate_password_change_object
+    get_user_in_db, authenticate_user, confirm_admin_body_legit, validate_ref, \
+    generate_password_change_object, validate_google_ref
 from app.mail import conf
 from app.core.dependency import stripe, AuthJWT
 
@@ -156,6 +158,127 @@ async def create_new_user(
     return {"status": 200, "message": "successfully created user", "error": ""}
 
 
+@auth.post("/google-signup", response_model=Token, responses={401: {"model": AuthError}})
+async def google_signup(
+        access_token: GoogleToken, Authorize: AuthJWT = Depends()
+) -> dict[str, Any]:
+    """
+        This endpoint enables google signup/login. After acquiring the access token from google on the 
+        frontend 
+
+        - **tokwn**: `required` The access token gotten from google.
+        - **referrer_id**: `optional` this field is the id of the referral. It is optional.
+
+    """
+
+    global lastname
+    try:
+        idinfo = id_token.verify_token(access_token.token, requests.Request(), config.GOOGLE_CLIENT_ID)
+
+    except:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="couldn't verify credentials")
+
+    user_exist = get_user_in_db({"_id": idinfo['sub'], "username": idinfo['email']})
+
+    if user_exist:
+        # got lazy i.e i wasn't DRY
+        access_token = Authorize.create_access_token(subject=idinfo['email'],
+                                                     expires_time=config.API_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                                                     algorithm=config.API_ALGORITHM,
+                                                     user_claims={"sub": idinfo['sub'], "username": idinfo['email']}
+                                                     )
+
+        refresh_token = Authorize.create_refresh_token(subject=idinfo['email'],
+                                                       algorithm=config.API_ALGORITHM,
+                                                       user_claims={"sub": idinfo['sub'], "username": idinfo['email']}
+                                                       )
+
+        user_exist["id"] = user_exist["_id"]
+        user_exist.pop("_id")
+        return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer",
+                "user": user_exist}
+
+    else:
+        t = get_unix_time()
+
+        validate_google_ref(idinfo, access_token.referrer_id)
+
+        firstname = idinfo["name"].split(" ")[0]
+        if len(idinfo["name"].split(" ")) > 1:
+            lastname = idinfo["name"].split(" ")[1]
+
+        d = {
+            "_id": idinfo["sub"],
+            "firstname": firstname,
+            "lastname": lastname,
+            "username": idinfo["email"],
+            "bio": "I am a user",
+            "location": "",
+            "avatar_url": idinfo["picture"],
+            "customer_id": "",
+            "referral_code": str(uuid4()).replace('-', ''),
+            "list_of_referral": [],
+            "list_of_verified_referral": [],
+            "password": "",
+            "password_changed": {  # TODO: work the change password logic and update its object
+                "last_date": 0,
+                "token": ""
+            },
+            "country": "",
+            "google_id": idinfo["jti"],
+            "disabled": False,
+            "verified": False,
+            "super_admin": False,
+            "sub_admin": False,
+            "subscribed": False,
+            "updated": t,
+            "created": t,
+            "settings": {
+                "theme": "light",
+                "platform": {
+                    "allow_invite": True,
+                    "new_notifications": True,
+                    "mentioned": True
+                },
+                "teams": {
+                    "allow_invite": True,
+                    "new_notifications": True,
+                    "mentioned": True
+                }
+            }
+        }
+
+    cus = stripe.Customer.create(
+        description=d["bio"],
+        email=d["username"],
+        name=d["firstname"] + " " + d["lastname"]
+    )
+
+    d.update({"verified": True, "customer_id": cus["id"]})
+
+    user = db.db["user"]
+    user_obj = user.insert_one(d)
+
+    access_token = Authorize.create_access_token(subject=idinfo['email'],
+                                                 expires_time=config.API_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                                                 algorithm=config.API_ALGORITHM,
+                                                 user_claims={"sub": idinfo['sub'],
+                                                              "username": idinfo['email']}
+                                                 )
+
+    refresh_token = Authorize.create_refresh_token(subject=idinfo['email'],
+                                                   algorithm=config.API_ALGORITHM,
+                                                   user_claims={"sub": idinfo['sub'],
+                                                                "username": idinfo['email']}
+                                                   )
+
+
+    d["id"] = d["_id"]
+    d.pop("_id")
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer",
+            "user": d}
+
+
 @auth.post("/login", response_model=Token, responses={401: {"model": AuthError}})
 async def login_for_access_token(
         user_cred: LoginUser, Authorize: AuthJWT = Depends()
@@ -167,7 +290,6 @@ async def login_for_access_token(
         - **password**: `required` each user must have a password.
 
        """
-
     user = authenticate_user(
         user_cred.username,
         user_cred.password
@@ -487,7 +609,9 @@ async def update_password(background_tasks: BackgroundTasks, update_info: Update
     else:
         cache.r.expire("runner", timedelta(seconds=1))
         db_helper.update_user({"_id": check_cache["user_id"]},
-                              {"password": get_password_hash(update_info.new_password)})
+                              {"password": get_password_hash(update_info.new_password),
+
+                               })
         u = get_user_by_id(check_cache["user_id"])
 
     message = MessageSchema(
@@ -535,6 +659,8 @@ async def complete_verification(background_tasks: BackgroundTasks, sup: str = Qu
 
     cus = stripe.Customer.create(
         description=u["bio"],
+        email=u["username"],
+        name=u["firstname"] + " " + u["lastname"]
     )
 
     upt = db_helper.update_user({"_id": u["_id"]}, {"verified": True, "customer_id": cus["id"]})

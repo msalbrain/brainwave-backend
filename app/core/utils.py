@@ -16,7 +16,7 @@ from bson.objectid import ObjectId
 from app.core import config
 from app.database import helpers, db
 from app.utils import get_unix_time
-from .schema import TokenData, SignupUser
+from .schema import TokenData, SignupUser, GoogleToken
 from app.database.helpers import get_user_in_db, update_user
 from app.database import helpers as db_helper
 from app.database.db import referral_col, user_col
@@ -171,6 +171,42 @@ def validate_ref(user_data: SignupUser, new_user_id: str):
     # object in db
 
     return {"verify": False, "data": {"assign_id": new_user_id}}
+
+
+def validate_google_ref(google_user_data, referrer_id):
+    """
+    This function helps with the validation of referral token
+    And update referral user object
+
+    """
+
+    _id = str(uuid4()).replace('-', '')  # generate id for refferal
+
+    u = get_user_in_db({"referral_code": referrer_id})
+    if not u:
+        return {"verify": False, "data": {"assign_id": google_user_data["sub"], }}
+
+    elif u["username"] == google_user_data["email"]:
+        raise HTTPException(status_code=409,
+                            detail=f"referral code provide belongs to username `{google_user_data['email']}` provided.")
+
+    ref_obj = {
+        "_id": _id,
+        "referral_user_id": str(u["_id"]),
+        "referred_user_id": google_user_data["sub"],
+        "referral_code": referrer_id,
+        "created": get_unix_time()
+    }
+
+    referral_col.insert_one(ref_obj)  # added new referral obj
+
+    u["list_of_referral"].append(google_user_data["sub"])  # added new user_id to referral user object
+    u["list_of_referral"] = list(set(u["list_of_referral"]))  # reduce redundancy
+
+    update_user({"username": u["username"]}, {"list_of_referral": u["list_of_referral"]})  # update referral user
+    # object in db
+
+    return {"verify": False}
 
 
 def generate_password_change_object(user_id):

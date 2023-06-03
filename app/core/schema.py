@@ -106,12 +106,16 @@ class UpdateBase(BaseModel):
 class SignupUser(SignUpBase):
     password: str
     referrer_id: Optional[str] = None
-    google_id: Optional[str] = None
 
 
 class LoginUser(BaseModel):
     username: str
     password: str
+
+
+class GoogleToken(BaseModel):
+    token: str
+    referrer_id: Optional[str] = None
 
 
 class AdminUpgrade(BaseModel):

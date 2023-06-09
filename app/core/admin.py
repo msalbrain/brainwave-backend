@@ -1,5 +1,5 @@
 from app.core.auth import *
-from app.core.schema import AdminUserDetail, AdminUpdate, AdminUserDetailReturn
+from app.core.schema import AdminUserDetail, AdminUpdate, AdminUserDetailReturn, AdminCreateNewUser
 
 
 admin = APIRouter(prefix="/admin", tags=["Admin"])
@@ -148,9 +148,8 @@ async def block_user(
         raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
                             detail="you do not have the authority to block this user")
 
-@admin.post("/update-user", response_model=SignupReturn)
+@admin.put("/update-user", response_model=SignupReturn)
 async def update_user(
-        user_id: AdminUserDetail,
         user_info: AdminUpdate,
         Authorize: AuthJWT = Depends()
 ) -> dict[str, Any] | JSONResponse:
@@ -169,11 +168,11 @@ async def update_user(
         return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
                             content={"detail": f"user not found"})
 
-    id = user_id.id
-    username = user_id.username
+    id = user_info.id
+    username = user_info.username
 
     by_id = get_user_by_id(id)
-    by_username = get_user_in_db({"username": user_id.username})
+    by_username = get_user_in_db({"username": user_info.username})
 
     q = {}
     user = {}
@@ -187,9 +186,21 @@ async def update_user(
         q = {"username": str(username)}
         user = by_username
 
+    up_dict = {}
+    if user_info.firstname:
+        up_dict["firstname"] = user_info.firstname
+    if user_info.lastname:
+        up_dict["lastname"] = user_info.lastname
+    if user_info.bio:
+        up_dict["bio"] = user_info.bio
+    if user_info.location:
+        up_dict["location"] = user_info.location
+    if user_info.country:
+        up_dict["country"] = user_info.country
+
     if not user["sub_admin"] and auth["sub_admin"] and not auth["disabled"]:
 
-        up = db_helper.update_user(q, user_info.dict())
+        up = db_helper.update_user(q, up_dict)
 
         if not up:
             raise HTTPException(status_code=HTTPStatus.CONFLICT,
@@ -199,7 +210,7 @@ async def update_user(
 
     elif user["sub_admin"] and auth["super_admin"] and not auth["disabled"]:
 
-        up = db_helper.update_user(q, {"disabled": True})
+        up = db_helper.update_user(q, up_dict)
 
         if not up:
             raise HTTPException(status_code=HTTPStatus.CONFLICT,
@@ -210,6 +221,7 @@ async def update_user(
     else:
         raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
                             detail="you do not have the authority to update this user")
+
 
 
 
@@ -331,6 +343,16 @@ async def get_user_detail(
     ## `AccessToken Required`
     This endpoint is only available to admins. It requires the user `id` or `username`
 
+    **Note**: Any parameter not being used shouldn't be added.
+
+    - **id**: `optional` this is used to identify the user to be updated. it can be skipped but `username` nust be present
+    - **username**: `optional` this is used to identify the user to be updated. it can be skipped but `id` nust be present
+    - **firstname**: `optional` the user's firstname.
+    - **lastname**: `optional` the user's lastname.
+    - **country**: `optional` the user's country.
+    - **location**: `optional` the user's location.
+    - **bio**: `optional` the user's bio.
+
     """
 
     Authorize.jwt_required()
@@ -381,3 +403,133 @@ async def get_user_detail(
             "updated": user_obj["updated"],
             "created": user_obj["created"]
         }
+
+
+@admin.post("/create-user", response_model=AdminUserDetailReturn)
+async def create_new_user(
+        request: Request,
+        background_tasks: BackgroundTasks,
+        data: AdminCreateNewUser,
+        Authorize: AuthJWT = Depends()
+) -> dict[str, Any] | JSONResponse:
+    """
+        ## `AccessToken Required`
+       This is an admin only endpoint that creates a new user. This is one of the ways of initializing a new user into
+       the system.
+       **Note**: Any parameter not being used shouldn't be added.
+
+        - **username**: `required` each user must be an email.
+        - **password**: `required` each user must have a password.
+        - **firstname**: `required` each user must have a firstname.
+        - **lastname**: `required` each user must have a lastname.
+        - **country**: `required` each user must have a country.
+        - **avatar_url**: `optional` an image url e.g `http://image.jpg` is what should be provided. if an image object
+        is what is in hand there is a route named `v1/user/add-avatar` for that (NOTE: you must signup first).
+        - **bio**: `required` each item must have a bio.
+        - **location**: `required` each user must have a location preferably `city, state`.
+        - **referrer_id**: `optional` this field is the id of the referral. It is optional.
+       \f
+       :param user_data: User input.
+    """
+
+    Authorize.jwt_required()
+
+    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
+
+    if not auth:
+        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
+                            content={"detail": f"user not found"})
+
+    is_admin = auth["sub_admin"]
+    if not is_admin:
+        raise HTTPException(status_code=401, detail="not authorised")
+
+    u = get_user_in_db({"username": data.username})
+
+    if u:
+        raise HTTPException(
+            status_code=409,
+            detail="user already exist",
+        )
+
+    new_user_id = str(uuid4()).replace('-', '')  # generate id for new user
+    ref = validate_ref(data, new_user_id)
+
+    user = db.db["user"]
+    dp_image = ""
+
+    if data.avatar_url:
+        dp_image = data.avatar_url
+    else:
+        dp_image = config.USER_DEFAULT_IMAGE
+
+    t = get_unix_time()
+
+    d = {
+        "_id": new_user_id,
+        "firstname": data.firstname,
+        "lastname": data.lastname,
+        "username": data.username,
+        "bio": data.bio,
+        "location": data.location,
+        "avatar_url": dp_image,
+        "customer_id": "",
+        "referral_code": str(uuid4()).replace('-', ''),
+        "list_of_referral": [],
+        "list_of_verified_referral": [],
+        "password": get_password_hash(data.password),
+        "password_changed": {  # TODO: work the change password logic and update its object
+            "last_date": t,
+            "token": ""
+        },
+        "country": data.country,
+        "google_id": "",
+        "disabled": False,
+        "verified": False,
+        "super_admin": False,
+        "sub_admin": False,
+        "subscribed": False,
+        "updated": t,
+        "created": t,
+        "settings": {
+            "theme": "light",
+            "platform": {
+                "allow_invite": True,
+                "new_notifications": True,
+                "mentioned": True
+            },
+            "teams": {
+                "allow_invite": True,
+                "new_notifications": True,
+                "mentioned": True
+            }
+        }
+    }
+
+    user_obj = user.insert_one(d)
+    logger.user_activity_log(
+        activity_id=logger.ActivityAdminUserCreate,
+        user_id=d["_id"],
+        username=d["username"],
+        activity_type="user created",
+        activity_details=f"A user with username {d['username']} and id {d['_id']} has been created by "
+                         f"Admin {auth['username']}",
+        request=request
+    )
+    message = MessageSchema(
+        subject="Welcome to Brainwave - Confirm Your Email Address",
+        recipients=[d["username"]],
+        template_body={
+            "app_name": "brainwave",
+            "title": "New user",
+            "firstname": d["firstname"],
+            "support_email": "brainwave@mail.com",
+            "link": f"https://brainwave-five.vercel.app?sup={new_user_id}"
+        }, subtype=MessageType.html)
+    fm = FastMail(conf)
+
+    # await fm.send_message(message)
+    background_tasks.add_task(fm.send_message, message, template_name="new_user.html")
+
+    return {"status": 200, "message": "successfully created user", "error": ""}
+

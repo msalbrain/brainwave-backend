@@ -126,67 +126,22 @@ class AdminUpgrade(BaseModel):
 class AdminDowngrade(AdminUpgrade):
     pass
 
-
 class AdminBlock(AdminUpgrade):
     block: bool
     pass
 
-
 class AdminUserDetail(AdminUpgrade):
     pass
 
+class AdminCreateNewUser(SignupUser):
+    pass
 
-class AdminUpdate(BaseModel):
+class AdminUpdate(AdminUserDetail):
     firstname: Optional[str]
     lastname: Optional[str]
     country: Optional[str]
     bio: Optional[str]
     location: Optional[str]
-
-
-"""
-
-d = {
-        "_id": new_user_id,
-        "firstname": user_data.firstname,
-        "lastname": user_data.lastname,
-        "username": user_data.username,
-        "bio": user_data.bio,
-        "location": user_data.location,
-        "avatar_url": dp_image,
-        "customer_id": "",
-        "referral_code": str(uuid4()).replace('-', ''),
-        "list_of_referral": [],
-        "list_of_verified_referral": [],
-        "password": get_password_hash(user_data.password),
-        "password_changed": {  # TODO: work the change password logic and update its object
-            "last_date": t,
-            "token": ""
-        },
-        "country": user_data.country,
-        "google_id": "",
-        "disabled": False,
-        "verified": False,
-        "super_admin": False,
-        "sub_admin": False,
-        "subscribed": False,
-        "updated": t,
-        "created": t,
-        "settings": {
-            "theme": "light",
-            "platform": {
-                "allow_invite": True,
-                "new_notifications": True,
-                "mentioned": True
-            },
-            "teams": {
-                "allow_invite": True,
-                "new_notifications": True,
-                "mentioned": True
-            }
-        }
-    }
-"""
 
 
 class AdminUserDetailReturn(BaseModel):

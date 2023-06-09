@@ -8,6 +8,6 @@ db = client[config.MONGODB_DBNAME]
 referral_col = db["referral"]
 user_col = db["user"]
 customer_col = db["customer"]
-
+log_col = db["log"]
 
 

@@ -20,7 +20,6 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from google.oauth2 import id_token
 from google.auth.transport import requests
-from user_agents import parse
 
 from app.core import config
 from app.database import helpers as db_helper, db, cache

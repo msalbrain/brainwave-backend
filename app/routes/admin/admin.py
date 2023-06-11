@@ -8,7 +8,7 @@ admin = APIRouter(prefix="/admin", tags=["Admin"])
 @admin.post("/upgrade", response_model=SignupReturn)
 async def upgrade_to_admin(
         data: AdminUpgrade,
-        Authorize: AuthJWT = Depends()
+        auth: dict[str, Any] = Depends(get_current_user)
 ) -> dict[str, Any] | JSONResponse:
     """
     ## `AccessToken Required`
@@ -19,12 +19,6 @@ async def upgrade_to_admin(
         super_admin > sub_admin > general user
     `
     """
-    Authorize.jwt_required()
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found"})
 
     id = data.id
     username = data.username
@@ -86,7 +80,7 @@ async def downgrade_from_admin(
 @admin.post("/block", response_model=SignupReturn)
 async def block_user(
         data: AdminBlock,
-        Authorize: AuthJWT = Depends()
+        auth: dict[str, Any] = Depends(get_current_user)
 ) -> dict[str, Any] | JSONResponse:
     """
     ## `AccessToken Required`
@@ -99,12 +93,6 @@ async def block_user(
     is_block = "block"
     if not data.block:
         is_block = "unblocked"
-    Authorize.jwt_required()
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found"})
 
     id = data.id
     username = data.username
@@ -152,7 +140,7 @@ async def block_user(
 @admin.put("/update-user", response_model=SignupReturn)
 async def update_user(
         user_info: AdminUpdate,
-        Authorize: AuthJWT = Depends()
+        auth: dict[str, Any] = Depends(get_current_user)
 ) -> dict[str, Any] | JSONResponse:
     """
     ## `AccessToken Required`
@@ -163,12 +151,6 @@ async def update_user(
     `
 
     """
-    Authorize.jwt_required()
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found"})
 
     id = user_info.id
     username = user_info.username
@@ -228,7 +210,7 @@ async def update_user(
 @admin.post("/delete", response_model=SignupReturn)
 async def delete_user(
         data: AdminUserDetail,
-        Authorize: AuthJWT = Depends()
+        auth: dict[str, Any] = Depends(get_current_user)
 ) -> dict[str, Any] | JSONResponse:
     """
     ## `AccessToken Required`
@@ -238,12 +220,6 @@ async def delete_user(
         super_admin > sub_admin > general user
     `
     """
-    Authorize.jwt_required()
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found"})
 
     id = data.id
     username = data.username
@@ -292,20 +268,13 @@ async def delete_user(
 async def user_list(
         limit: int = Query(gt=0, ),
         page: int = Query(gt=0),
-        Authorize: AuthJWT = Depends()
+        auth: dict[str, Any] = Depends(get_current_user)
 ) -> dict[str, Any] | JSONResponse:
     """
     ## `AccessToken Required`
     This endpoint returns a list of users.
 
     """
-    Authorize.jwt_required()
-
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found"})
 
     is_admin = auth["sub_admin"]
     if not is_admin:
@@ -337,7 +306,7 @@ async def user_list(
 @admin.post("/user-detail", response_model=AdminUserDetailReturn)
 async def get_user_detail(
         data: AdminUpgrade,
-        Authorize: AuthJWT = Depends()
+        auth: dict[str, Any] = Depends(get_current_user)
 ) -> dict[str, Any] | JSONResponse:
     """
     ## `AccessToken Required`
@@ -355,13 +324,6 @@ async def get_user_detail(
 
     """
 
-    Authorize.jwt_required()
-
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found"})
 
     is_admin = auth["sub_admin"]
     if not is_admin:
@@ -410,7 +372,7 @@ async def create_new_user(
         request: Request,
         background_tasks: BackgroundTasks,
         data: AdminCreateNewUser,
-        Authorize: AuthJWT = Depends()
+        auth: dict[str, Any] = Depends(get_current_user)
 ) -> dict[str, Any] | JSONResponse:
     """
         ## `AccessToken Required`
@@ -431,14 +393,6 @@ async def create_new_user(
        \f
        :param user_data: User input.
     """
-
-    Authorize.jwt_required()
-
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found"})
 
     is_admin = auth["sub_admin"]
     if not is_admin:

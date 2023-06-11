@@ -10,7 +10,6 @@ from pydantic import BaseModel
 
 from app.apis.api_a.mainmod import main_func as main_func_a
 from app.core.auth import get_current_user
-from app.core.schema import IndexReturn, CreateCheckoutSession, SignupReturn, CustomerPortal
 from app.core import config
 from app.database.db import client
 from app.database.cache import r

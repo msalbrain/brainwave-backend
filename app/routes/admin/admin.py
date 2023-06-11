@@ -1,6 +1,6 @@
 from app.core.auth import *
-from app.core.schema import AdminUserDetail, AdminUpdate, AdminUserDetailReturn, AdminCreateNewUser
-
+from app.core.schema.admin import AdminUserDetail, AdminUpdate, AdminUserDetailReturn, AdminCreateNewUser, \
+    AdminUpgrade, AdminDowngrade, AdminBlock, AdminUserList
 
 admin = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -148,6 +148,7 @@ async def block_user(
         raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
                             detail="you do not have the authority to block this user")
 
+
 @admin.put("/update-user", response_model=SignupReturn)
 async def update_user(
         user_info: AdminUpdate,
@@ -155,11 +156,12 @@ async def update_user(
 ) -> dict[str, Any] | JSONResponse:
     """
     ## `AccessToken Required`
-    This route allows for the blockage of user. It accepts a json object containing
+    This route allows for the updating a user. It accepts a json object containing
     either an `id` or  `username`. blocking is allowed base on privilege level i.e
     `
         super_admin > sub_admin > general user
     `
+
     """
     Authorize.jwt_required()
     auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
@@ -221,8 +223,6 @@ async def update_user(
     else:
         raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
                             detail="you do not have the authority to update this user")
-
-
 
 
 @admin.post("/delete", response_model=SignupReturn)
@@ -532,4 +532,3 @@ async def create_new_user(
     background_tasks.add_task(fm.send_message, message, template_name="new_user.html")
 
     return {"status": 200, "message": "successfully created user", "error": ""}
-

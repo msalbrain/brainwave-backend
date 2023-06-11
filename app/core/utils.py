@@ -3,23 +3,24 @@ from uuid import uuid4
 
 from datetime import datetime, timedelta
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Annotated
+from pprint import pprint
 import pickle
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, Request, File, Body
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import Depends, HTTPException, Header
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.responses import JSONResponse
-from jose import JWTError, jwt
+from jose import jwt
 from passlib.context import CryptContext
-from bson.objectid import ObjectId
 
 from app.core import config
-from app.database import helpers, db
+from app.database import helpers
 from app.utils import get_unix_time
-from .schema import TokenData, SignupUser, GoogleToken
+from .schema.auth import SignupUser
 from app.database.helpers import get_user_in_db, update_user
 from app.database import helpers as db_helper
-from app.database.db import referral_col, user_col
+from app.database.db import referral_col
+from app.core.dependency import AuthJWT
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
@@ -76,34 +77,17 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> b
     return encoded_jwt
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict[str, Any]:
-    credentials_exception = HTTPException(
-        status_code=HTTPStatus.UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+async def get_current_user(Authorization: Annotated[str | None, Header(convert_underscores=False,
+                                                                       description="This is of type Bearer i.e `Authorization: Bearer <token>`")] = None,
+                           Authorize: AuthJWT = Depends()) -> dict[str, Any]:
+    Authorize.jwt_required()
+    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
 
-    try:
-        payload = jwt.decode(
-            token,
-            config.API_SECRET_KEY,
-            algorithms=[config.API_ALGORITHM],
-        )
-        username = payload.get("sub")
+    if not auth:
+        raise HTTPException(status_code=HTTPStatus.UNAUTHORIZED,
+                            detail=f"user not found user -- {Authorize.get_jwt_subject()}")
 
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username)
-
-    except JWTError:
-        raise credentials_exception
-
-    user = get_user_in_db({"username": token_data.username})
-
-    if user is None:
-        raise credentials_exception
-
-    return user
+    return auth
 
 
 def confirm_admin_body_legit(user_id, username):
@@ -209,6 +193,27 @@ def validate_google_ref(google_user_data, referrer_id):
     return {"verify": False}
 
 
+def verify_user(referred_user_id: str):
+    reefed_user = referral_col.find_one({"referred_user_id": referred_user_id})
+    pprint(reefed_user)
+    if not reefed_user:
+        pass
+        # TODO: Come back and add logging for `user with referred_user_id not found`
+
+    referral_user_obj = get_user_in_db({"_id": reefed_user["referral_user_id"]})
+
+    if not referral_user_obj:
+        raise Exception("Problem wa")
+
+    referral_user_obj["list_of_verified_referral"].append(referred_user_id)  # added new user_id to referral user object
+    referral_user_obj["list_of_verified_referral"] = list(
+        set(referral_user_obj["list_of_verified_referral"]))  # remove redundancy
+
+    return update_user({"_id": reefed_user["referral_user_id"]},
+                       {"list_of_verified_referral": referral_user_obj[
+                          "list_of_verified_referral"]})  # update referral user object in db
+
+
 def generate_password_change_object(user_id):
     t = get_unix_time()
     tok = str(uuid4()).replace("-", "")
@@ -223,3 +228,4 @@ def generate_password_change_object(user_id):
     db_helper.add_to_cache(d, exp=10, key=tok)
 
     return d
+

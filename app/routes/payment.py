@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Query, Body
-from http import HTTPStatus
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi_jwt_auth import AuthJWT
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from app.core.schema import CreateCheckoutSession, CreateCheckoutSessionOut, CustomerPortal, CustomerPortalOut
+from app.core.schema.payment import CreateCheckoutSession, CreateCheckoutSessionOut, CustomerPortal, CustomerPortalOut
 from app.core import config
 
-from app.database.helpers import get_user_in_db
-
 from app.core.dependency import stripe
+from app.core.utils import get_current_user
 
 from typing import Any
 
@@ -59,8 +55,13 @@ class Item(BaseModel):
 #         'clientSecret': intent['client_secret']
 #     }
 
+@payment.post("/get-prices", response_model=CreateCheckoutSessionOut)
+async def get_prices():
+    pass
+
+
 @payment.post("/create-checkout-session", response_model=CreateCheckoutSessionOut)
-async def create_checkout_session(data: CreateCheckoutSession, Authorize: AuthJWT = Depends()):
+async def create_checkout_session(data: CreateCheckoutSession, auth: dict[str, Any] = Depends(get_current_user)):
     """
     ## `AccessToken Required`
     instructions for how flow works can be found here [Stripe quickstart](https://stripe.com/docs/billing/quickstart)
@@ -77,14 +78,6 @@ async def create_checkout_session(data: CreateCheckoutSession, Authorize: AuthJW
         }
         ```
     """
-
-    Authorize.jwt_required()
-
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found"})
 
     if not auth["customer_id"]:
         raise HTTPException(
@@ -116,7 +109,7 @@ async def create_checkout_session(data: CreateCheckoutSession, Authorize: AuthJW
 
 
 @payment.post('/create-portal-session', response_model=CustomerPortalOut)
-async def customer_portal(data: CustomerPortal, Authorize: AuthJWT = Depends()):
+async def customer_portal(data: CustomerPortal, auth: dict[str, Any] = Depends(get_current_user)):
     """
     ## `AccessToken Required`
     instructions for how flow works can be found here [Stripe quickstart](https://stripe.com/docs/billing/quickstart)
@@ -133,14 +126,6 @@ async def customer_portal(data: CustomerPortal, Authorize: AuthJWT = Depends()):
         }
         ```
     """
-
-    Authorize.jwt_required()
-
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found"})
 
     if not auth["customer_id"]:
         raise HTTPException(

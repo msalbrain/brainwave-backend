@@ -5,8 +5,7 @@ from fastapi import UploadFile
 from app.core import config
 
 
-class IndexReturn(BaseModel):
-    info: str
+
 
 
 class User(BaseModel):
@@ -118,52 +117,6 @@ class GoogleToken(BaseModel):
     referrer_id: Optional[str] = None
 
 
-class AdminUpgrade(BaseModel):
-    id: Optional[str]
-    username: Optional[str]
-
-
-class AdminDowngrade(AdminUpgrade):
-    pass
-
-class AdminBlock(AdminUpgrade):
-    block: bool
-    pass
-
-class AdminUserDetail(AdminUpgrade):
-    pass
-
-class AdminCreateNewUser(SignupUser):
-    pass
-
-class AdminUpdate(AdminUserDetail):
-    firstname: Optional[str]
-    lastname: Optional[str]
-    country: Optional[str]
-    bio: Optional[str]
-    location: Optional[str]
-
-
-class AdminUserDetailReturn(BaseModel):
-    id: str
-    firstname: str
-    lastname: str
-    username: str
-    bio: str
-    location: str
-    avatar_url: Optional[HttpUrl]
-    customer_id: str
-    referral_code: str
-    country: str
-    disabled: bool
-    verified: bool
-    super_admin: bool
-    sub_admin: bool
-    subscribed: bool
-    updated: int
-    created: int
-
-
 class Refer(BaseModel):
     refferer_id: Optional[str] = None
 
@@ -190,20 +143,3 @@ class ForgetPasswordRequest(BaseModel):
 class UpdatePassword(BaseModel):
     new_password: str
     token: str
-
-
-class CreateCheckoutSession(BaseModel):
-    lookup_key: str
-
-
-class CreateCheckoutSessionOut(BaseModel):
-    status: int
-    redirect_url: HttpUrl
-
-
-class CustomerPortal(BaseModel):
-    return_url: Optional[HttpUrl] = config.APP_URL
-
-
-class CustomerPortalOut(CreateCheckoutSessionOut):
-    pass

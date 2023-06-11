@@ -1,34 +1,34 @@
 from __future__ import annotations
+import sys
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Query, Body
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse
+
+from pydantic import BaseModel
 from fastapi_health import health
 from http import HTTPStatus
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi_jwt_auth import AuthJWT
-from pydantic import BaseModel
+from loguru import logger
 
 from app.apis.api_a.mainmod import main_func as main_func_a
 from app.core.auth import get_current_user
-from app.core.schema import IndexReturn, CreateCheckoutSession, SignupReturn, CustomerPortal
-from app.core import config
 from app.database.db import client
 from app.database.cache import r
-from app.database.helpers import get_user_in_db
 from app.utils import get_unix_time
-from app.core.dependency import stripe
 
-from typing import Any
 
 router = APIRouter(tags=["Welcome ✋"])
 
+class IndexReturn(BaseModel):
+    info: str
+
 
 @router.get("/", responses={200: {"model": IndexReturn}})
-async def index():
+async def index(request: Request):
+
     return JSONResponse(status_code=HTTPStatus.OK,
                         content={
-                            "info": "This is the index page of fastapi-nano. "
-                                    "You probably want to go to 'http://<hostname:port>/docs'.",
+                            "info": "This is the index page of brainwave v1 api. "
+                                    "You probably want to go to 'http://<hostname:port>/docs' or 'http://<hostname:port>/redoc'",
                         })
 
 

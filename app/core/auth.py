@@ -1,40 +1,33 @@
 from __future__ import annotations
 
-import asyncio
 from uuid import uuid4
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from http import HTTPStatus
-from typing import Any, Optional, Union
-from pydantic import HttpUrl, EmailStr, ValidationError
+from typing import Any, Optional, Annotated
+from pydantic import EmailStr
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Request, File, \
     Body, BackgroundTasks, Query, Header, status
-from fastapi.logger import logger
-from fastapi.responses import JSONResponse
-# from fastapi_jwt_auth import AuthJWT
+
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
-# from fastapi_jwt_auth.exceptions import AuthJWTException
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 from google.oauth2 import id_token
 from google.auth.transport import requests
-
 from app.core import config
 from app.database import helpers as db_helper, db, cache
 from app.database.db import referral_col, user_col, customer_col
 from app.utils import get_random_string, get_unix_time
-from .schema import Token, TokenData, AdminUpgrade, AdminDowngrade, \
-    UpdateBase, SignupReturn, SignupUser, AdminBlock, AuthError, \
-    CurrentUser, RefToken, AdminUserList, LoginUser, \
+from .schema.auth import Token, UpdateBase, SignupReturn, SignupUser, \
+    AuthError, CurrentUser, RefToken, LoginUser, \
     UpdatePassword, GoogleToken
 from app.core.utils import get_password_hash, get_user_by_id, get_current_user, \
-    get_user_in_db, authenticate_user, confirm_admin_body_legit, validate_ref, \
+    get_user_in_db, authenticate_user, verify_user, validate_ref, \
     generate_password_change_object, validate_google_ref
 from app.mail import conf
 from app.core.dependency import stripe, AuthJWT
-from app.database import logger
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
@@ -54,33 +47,28 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 auth = APIRouter(prefix="/user", tags=["Authentication"])
 
 
-@auth.get("/")
-def lololo(request: Request):
-    usa = parse(request.headers["user-agent"])
-
-
 @auth.post("/signup", response_model=SignupReturn, responses={409: {"model": AuthError}})
 async def create_new_user(
         request: Request, background_tasks: BackgroundTasks, user_data: SignupUser = Body(...)
 ) -> dict[str, Any]:
     """
-       Create a new user. This is one of the ways of initializing a new user into
-       the system.
-       **Note**: Any parameter not being used shouldn't be added.
+           Create a new user. This is one of the ways of initializing a new user into
+           the system.
+           **Note**: Any parameter not being used shouldn't be added.
 
-        - **username**: `required` each user must be an email.
-        - **password**: `required` each user must have a password.
-        - **firstname**: `required` each user must have a firstname.
-        - **lastname**: `required` each user must have a lastname.
-        - **country**: `required` each user must have a country.
-        - **avatar_url**: `optional` an image url e.g `http://image.jpg` is what should be provided. if an image object is what
-        is in hand there is a route named `v1/user/add-avatar` for that (NOTE: you must signup first).
-        - **bio**: `required` each item must have a bio.
-        - **location**: `required` each user must have a location preferably `city, state`.
-        - **referrer_id**: `optional` this field is the id of the referral. It is optional.
-       \f
-       :param user_data: User input.
-       """
+            - **username**: `required` each user must be an email.
+            - **password**: `required` each user must have a password.
+            - **firstname**: `required` each user must have a firstname.
+            - **lastname**: `required` each user must have a lastname.
+            - **country**: `required` each user must have a country.
+            - **avatar_url**: `optional` an image url e.g `http://image.jpg` is what should be provided. if an image object is what
+            is in hand there is a route named `v1/user/add-avatar` for that (NOTE: you must signup first).
+            - **bio**: `required` each item must have a bio.
+            - **location**: `required` each user must have a location preferably `city, state`.
+            - **referrer_id**: `optional` this field is the id of the referral. It is optional.
+           \f
+           :param user_data: User input.
+           """
 
     u = get_user_in_db({"username": user_data.username})
 
@@ -145,14 +133,7 @@ async def create_new_user(
     }
 
     user_obj = user.insert_one(d)
-    logger.user_activity_log(
-        activity_id=logger.ActivityUserCreated,
-        user_id=d["_id"],
-        username=d["username"],
-        activity_type="user created",
-        activity_details=f"A user with username {d['username']} and id {d['_id']} has been created",
-        request=request
-    )
+
     message = MessageSchema(
         subject="Welcome to Brainwave - Confirm Your Email Address",
         recipients=[d["username"]],
@@ -207,16 +188,6 @@ async def google_signup(
 
         user_exist["id"] = user_exist["_id"]
         user_exist.pop("_id")
-
-        logger.user_activity_log(
-            activity_id=logger.ActivityGoogleUserLogin,
-            user_id=idinfo['sub'],
-            username=idinfo['email'],
-            activity_type="user logged in",
-            activity_details=f"A user with username {idinfo['email']} and id {idinfo['sub']} has been logged in "
-                             f"through google",
-            request=request
-        )
 
         return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer",
                 "user": user_exist}
@@ -280,28 +251,8 @@ async def google_signup(
 
     d.update({"verified": True, "customer_id": cus["id"]})
 
-
     user = db.db["user"]
     user_obj = user.insert_one(d)
-    logger.user_activity_log(
-        activity_id=logger.ActivityGoogleUserLogin,
-        user_id=d['_id'],
-        username=d['username'],
-        activity_type="user created",
-        activity_details=f"A user with username {idinfo['email']} and id {idinfo['sub']} has been created "
-                         f"through google",
-        request=request
-    )
-
-    logger.user_activity_log(
-        activity_id=logger.ActivityGoogleUserCreated,
-        user_id=d['_id'],
-        username=d['username'],
-        activity_type="stripe customer created",
-        activity_details=f"A stripe customer with username {idinfo['email']} was created "
-                         f"through google",
-        request=request
-    )
 
     access_token = Authorize.create_access_token(subject=idinfo['email'],
                                                  expires_time=config.API_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
@@ -362,15 +313,6 @@ async def login_for_access_token(
     # Authorize.set_access_cookies(access_token)
     # Authorize.set_refresh_cookies(refresh_token)
     # return {"msg": "Successfully login"}
-
-    logger.user_activity_log(
-        activity_id=logger.ActivityUserLogin,
-        user_id=user['id'],
-        username=user['username'],
-        activity_type="user logged in",
-        activity_details=f"A user with username {user['username']} was created ",
-        request=request
-    )
 
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer",
             "user": user}
@@ -456,7 +398,7 @@ async def add_avatar(
 async def update_user(
         request: Request,
         user_data: Optional[UpdateBase] = Body(title="user update"),
-        Authorize: AuthJWT = Depends()
+        auth: dict[str, Any] = Depends(get_current_user)
 ) -> dict[str, Any] | JSONResponse:
     """
     ## `AccessToken Required`
@@ -473,13 +415,6 @@ async def update_user(
    \f
    :param user_data: User input.
     """
-
-    Authorize.jwt_required()
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found "})
 
     changer = {}
 
@@ -507,8 +442,8 @@ async def update_user(
     return {"status": 200, "message": f"successfully updated user {auth['username']}", "error": ""}
 
 
-@auth.get("/current-user", response_model=CurrentUser)
-async def get_current_user(request: Request, Authorize: AuthJWT = Depends()):
+@auth.get("/current-user", response_model=CurrentUser, operation_id="authorize")
+async def get_current_user(request: Request, auth: dict[str, Any] = Depends(get_current_user)):
     """
     ## `AccessToken Required`
     Current User.
@@ -516,12 +451,6 @@ async def get_current_user(request: Request, Authorize: AuthJWT = Depends()):
    \f
    :param user_data: User input.
     """
-    Authorize.jwt_required()
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found user -- {Authorize.get_jwt_subject()} "})
 
     if str(auth["avatar_url"]).startswith("http"):
         pass
@@ -534,36 +463,23 @@ async def get_current_user(request: Request, Authorize: AuthJWT = Depends()):
 
 
 @auth.get("/referral-code", responses={200: {"model": RefToken}, 401: {"model": AuthError}})
-async def get_referral_token(request: Request, Authorize: AuthJWT = Depends()):
+async def get_referral_token(request: Request, auth: dict[str, Any] = Depends(get_current_user)):
     """
     ## `AccessToken Required`
     This returns the referral token of a user. `access token needed`
 
     """
-    Authorize.jwt_required()
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found"})
 
     return {"token": auth.get('referral_code')}
 
 
 @auth.delete("/delete", response_model=SignupReturn, responses={409: {"model": AuthError}})
-async def delete_user(request: Request, Authorize: AuthJWT = Depends()):
+async def delete_user(request: Request, auth: dict[str, Any] = Depends(get_current_user)):
     """
     ## `AccessToken Required`
     Delete a user. This route deletes a user from the database
 
     """
-
-    Authorize.jwt_required()
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found"})
 
     d = db_helper.delete_user({"username": auth["username"]})
     if d:
@@ -583,6 +499,9 @@ async def forget_password(request: Request, background_tasks: BackgroundTasks, u
     if not user:
         raise HTTPException(status_code=404,
                             detail=f"user with username {username} doesn't exist")
+    elif user["google_id"]:
+        raise HTTPException(status_code=403,
+                            detail=f"user with username {username} forbidden from updating password")
 
     g = generate_password_change_object(user["_id"])
 
@@ -609,18 +528,16 @@ async def forget_password(request: Request, background_tasks: BackgroundTasks, u
 
 @auth.post("/send_password_change_token", response_model=SignupReturn, responses={409: {"model": AuthError}})
 async def send_password_change_token(request: Request, background_tasks: BackgroundTasks,
-                                     Authorize: AuthJWT = Depends()):
+                                     auth: dict[str, Any] = Depends(get_current_user)):
     """
     ## `AccessToken Required`
     Just like to forget password flow, sends a forget password email to it. But `access token needed`
 
     """
 
-    auth = get_user_in_db({"_id": Authorize.get_jwt_subject()})
-
-    if not auth:
-        return JSONResponse(status_code=HTTPStatus.UNAUTHORIZED,
-                            content={"detail": f"user not found"})
+    if auth["google_id"]:
+        raise HTTPException(status_code=403,
+                            detail=f"user with username {g['username']} forbidden from updating password")
 
     link = "https://brainwave-five.vercel.app"
 
@@ -637,6 +554,7 @@ async def send_password_change_token(request: Request, background_tasks: Backgro
             "button_title": "Reset Password",
             "support_email": "salman2019@gmail.com",
         }, subtype=MessageType.html)
+
     fm = FastMail(conf)
 
     # await fm.send_message(message)
@@ -689,13 +607,10 @@ async def update_password(request: Request, background_tasks: BackgroundTasks, u
 @auth.post("/complete-verification", responses={409: {"model": AuthError},
                                                 401: {"model": AuthError}
                                                 })
-async def complete_verification(request: Request, background_tasks: BackgroundTasks, sup: str = Query(...)):
+async def complete_verification(request: Request, background_tasks: BackgroundTasks, sup: str = Query(...,
+                                                                                                      description="`required` A string parameter representing the verification token associated with the user.")):
     """
     This API endpoint is used to complete the verification process for a user.
-
-    It expects the following parameter:
-
-    - **sup**: `required` A string parameter representing the verification token associated with the user.
 
     """
 
@@ -719,6 +634,7 @@ async def complete_verification(request: Request, background_tasks: BackgroundTa
     )
 
     upt = db_helper.update_user({"_id": u["_id"]}, {"verified": True, "customer_id": cus["id"]})
+    update_referral = verify_user(u["_id"])
 
     # TODO: SEND CONGRATULATION ON ACCOUNT VERIFICATION
 

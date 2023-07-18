@@ -50,7 +50,7 @@ typing-extensions==4.7.1
     # via
     #   fastapi
     #   pydantic
-uvicorn==0.23.0
+uvicorn==0.23.1
     # via -r requirements.in
 
 # The following packages are considered to be unsafe in a requirements file:

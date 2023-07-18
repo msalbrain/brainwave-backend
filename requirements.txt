@@ -18,12 +18,14 @@ ecdsa==0.18.0
     # via python-jose
 fastapi==0.100.0
     # via -r requirements.in
-gunicorn==20.1.0
+gunicorn==21.0.1
     # via -r requirements.in
 h11==0.14.0
     # via uvicorn
 idna==3.4
     # via anyio
+packaging==23.1
+    # via gunicorn
 passlib==1.7.4
     # via -r requirements.in
 pyasn1==0.4.8
@@ -52,6 +54,3 @@ typing-extensions==4.7.1
     #   pydantic
 uvicorn==0.23.0
     # via -r requirements.in
-
-# The following packages are considered to be unsafe in a requirements file:
-# setuptools

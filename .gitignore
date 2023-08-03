@@ -3,7 +3,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+./brainwave
+./static
 
+randfile.py
+idea.json
 .idea
 .env
 
@@ -107,6 +111,7 @@ celerybeat.pid
 
 # SageMath parsed files
 *.sage.py
+
 
 # Environments
 .venv

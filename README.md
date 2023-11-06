@@ -1,7 +1,7 @@
 
 ## Description
 
-This is the backend template for brainwave.
+This is the backend template for brainwave a chatgpt like app
 
 ## Quickstart
 * create a copy of .env.example as .env and populate 

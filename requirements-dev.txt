@@ -55,7 +55,7 @@ platformdirs==2.6.2
     # via black
 pluggy==1.0.0
     # via pytest
-pytest==7.4.3
+pytest==7.4.4
     # via -r requirements-dev.in
 requests==2.31.0
     # via -r requirements-dev.in

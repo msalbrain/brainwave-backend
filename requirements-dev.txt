@@ -34,7 +34,7 @@ idna==3.4
     #   requests
 iniconfig==1.1.1
     # via pytest
-mypy==1.12.1
+mypy==1.13.0
     # via -r requirements-dev.in
 mypy-extensions==1.0.0
     # via

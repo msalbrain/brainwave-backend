@@ -69,7 +69,7 @@ pytest==9.0.3
     # via -r requirements-dev.in
 pytokens==0.4.1
     # via black
-requests==2.33.1
+requests==2.34.0
     # via -r requirements-dev.in
 ruff==0.15.12
     # via -r requirements-dev.in
